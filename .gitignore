@@ -1,0 +1,21 @@
+# 编译产物
+MyCompiler/build/
+build/
+
+# IDE 缓存
+.cache/
+.vscode/
+
+# 性能测试文件（不提交）
+MyCompiler/examples/advance/
+
+# 评测测试文件（不提交）
+MyCompiler/eval_tests/
+
+# 开发日志（不提交）
+MyCompiler/log/
+
+# 系统文件
+Thumbs.db
+*.swp
+*.swo
