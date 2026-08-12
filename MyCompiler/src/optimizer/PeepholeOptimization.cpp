@@ -44,7 +44,13 @@ void Optimizer::peepholeOptimization(TACProgram& program) {
             // 模式：x = y + 0 → x = y
             if (instr.type == TACType::BINARY && instr.op == "+" &&
                 instr.rhs.type == TACOpType::CONST_INT && instr.rhs.intValue == 0) {
-                result.push_back(TACInstruction::assign(instr.result, instr.lhs));
+                TACInstruction new_instr;
+                new_instr.type = TACType::ASSIGN;
+                new_instr.result = instr.result;
+                new_instr.lhs = instr.lhs;
+                new_instr.rhs = TACOperand::none();
+                new_instr.op.clear();
+                result.push_back(new_instr);
                 ++optimized;
                 changed = true;
                 continue;
@@ -53,7 +59,13 @@ void Optimizer::peepholeOptimization(TACProgram& program) {
             // 模式：x = 0 + y → x = y
             if (instr.type == TACType::BINARY && instr.op == "+" &&
                 instr.lhs.type == TACOpType::CONST_INT && instr.lhs.intValue == 0) {
-                result.push_back(TACInstruction::assign(instr.result, instr.rhs));
+                TACInstruction new_instr;
+                new_instr.type = TACType::ASSIGN;
+                new_instr.result = instr.result;
+                new_instr.lhs = instr.rhs;
+                new_instr.rhs = TACOperand::none();
+                new_instr.op.clear();
+                result.push_back(new_instr);
                 ++optimized;
                 changed = true;
                 continue;
@@ -62,7 +74,13 @@ void Optimizer::peepholeOptimization(TACProgram& program) {
             // 模式：x = y - 0 → x = y
             if (instr.type == TACType::BINARY && instr.op == "-" &&
                 instr.rhs.type == TACOpType::CONST_INT && instr.rhs.intValue == 0) {
-                result.push_back(TACInstruction::assign(instr.result, instr.lhs));
+                TACInstruction new_instr;
+                new_instr.type = TACType::ASSIGN;
+                new_instr.result = instr.result;
+                new_instr.lhs = instr.lhs;
+                new_instr.rhs = TACOperand::none();
+                new_instr.op.clear();
+                result.push_back(new_instr);
                 ++optimized;
                 changed = true;
                 continue;
@@ -71,7 +89,13 @@ void Optimizer::peepholeOptimization(TACProgram& program) {
             // 模式：x = y * 1 → x = y
             if (instr.type == TACType::BINARY && instr.op == "*" &&
                 instr.rhs.type == TACOpType::CONST_INT && instr.rhs.intValue == 1) {
-                result.push_back(TACInstruction::assign(instr.result, instr.lhs));
+                TACInstruction new_instr;
+                new_instr.type = TACType::ASSIGN;
+                new_instr.result = instr.result;
+                new_instr.lhs = instr.lhs;
+                new_instr.rhs = TACOperand::none();
+                new_instr.op.clear();
+                result.push_back(new_instr);
                 ++optimized;
                 changed = true;
                 continue;
@@ -80,7 +104,13 @@ void Optimizer::peepholeOptimization(TACProgram& program) {
             // 模式：x = 1 * y → x = y
             if (instr.type == TACType::BINARY && instr.op == "*" &&
                 instr.lhs.type == TACOpType::CONST_INT && instr.lhs.intValue == 1) {
-                result.push_back(TACInstruction::assign(instr.result, instr.rhs));
+                TACInstruction new_instr;
+                new_instr.type = TACType::ASSIGN;
+                new_instr.result = instr.result;
+                new_instr.lhs = instr.rhs;
+                new_instr.rhs = TACOperand::none();
+                new_instr.op.clear();
+                result.push_back(new_instr);
                 ++optimized;
                 changed = true;
                 continue;
@@ -89,7 +119,13 @@ void Optimizer::peepholeOptimization(TACProgram& program) {
             // 模式：x = y * 0 → x = 0
             if (instr.type == TACType::BINARY && instr.op == "*" &&
                 instr.rhs.type == TACOpType::CONST_INT && instr.rhs.intValue == 0) {
-                result.push_back(TACInstruction::assign(instr.result, TACOperand::constInt(0)));
+                TACInstruction new_instr;
+                new_instr.type = TACType::ASSIGN;
+                new_instr.result = instr.result;
+                new_instr.lhs = TACOperand::constInt(0);
+                new_instr.rhs = TACOperand::none();
+                new_instr.op.clear();
+                result.push_back(new_instr);
                 ++optimized;
                 changed = true;
                 continue;
@@ -98,7 +134,13 @@ void Optimizer::peepholeOptimization(TACProgram& program) {
             // 模式：x = 0 * y → x = 0
             if (instr.type == TACType::BINARY && instr.op == "*" &&
                 instr.lhs.type == TACOpType::CONST_INT && instr.lhs.intValue == 0) {
-                result.push_back(TACInstruction::assign(instr.result, TACOperand::constInt(0)));
+                TACInstruction new_instr;
+                new_instr.type = TACType::ASSIGN;
+                new_instr.result = instr.result;
+                new_instr.lhs = TACOperand::constInt(0);
+                new_instr.rhs = TACOperand::none();
+                new_instr.op.clear();
+                result.push_back(new_instr);
                 ++optimized;
                 changed = true;
                 continue;
@@ -107,7 +149,13 @@ void Optimizer::peepholeOptimization(TACProgram& program) {
             // 模式：x = y / 1 → x = y
             if (instr.type == TACType::BINARY && instr.op == "/" &&
                 instr.rhs.type == TACOpType::CONST_INT && instr.rhs.intValue == 1) {
-                result.push_back(TACInstruction::assign(instr.result, instr.lhs));
+                TACInstruction new_instr;
+                new_instr.type = TACType::ASSIGN;
+                new_instr.result = instr.result;
+                new_instr.lhs = instr.lhs;
+                new_instr.rhs = TACOperand::none();
+                new_instr.op.clear();
+                result.push_back(new_instr);
                 ++optimized;
                 changed = true;
                 continue;
@@ -118,8 +166,15 @@ void Optimizer::peepholeOptimization(TACProgram& program) {
                 i > 0 && result.back().type == TACType::UNARY && result.back().op == "-" &&
                 result.back().result.name == instr.lhs.name) {
                 // 替换上一条指令的结果
+                TACOperand prev_lhs = result.back().lhs;
                 result.pop_back();
-                result.push_back(TACInstruction::assign(instr.result, result.back().lhs));
+                TACInstruction new_instr;
+                new_instr.type = TACType::ASSIGN;
+                new_instr.result = instr.result;
+                new_instr.lhs = prev_lhs;
+                new_instr.rhs = TACOperand::none();
+                new_instr.op.clear();
+                result.push_back(new_instr);
                 ++optimized;
                 changed = true;
                 continue;
