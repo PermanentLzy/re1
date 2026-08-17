@@ -210,7 +210,13 @@ void IRGenerator::visit(VarDeclStmt& n) {
             emit(TACInstruction{TACType::ASSIGN, TACOperand::var(uniqueName),
                 TACOperand::var(result_), TACOperand::none()});
         }
+    } else if (scopeMaps_.size() == 1) {
+        // 全局变量无初始化：发射 counter = 0（C 语义默认 0），
+        // 让 CodeGen 第 1 遍能识别为全局变量
+        emit(TACInstruction{TACType::ASSIGN, TACOperand::var(uniqueName),
+            TACOperand::constInt(0), TACOperand::none()});
     }
+    // 局部变量无初始化：不发射指令（CodeGen 按需分配栈空间）
 }
 
 void IRGenerator::visit(IfStmt& n) {

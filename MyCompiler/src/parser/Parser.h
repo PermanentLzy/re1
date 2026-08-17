@@ -80,8 +80,13 @@ private:
     DataType parseType();
 
     // ---- 表达式层级（体现优先级）----
-    // Expr -> LOrExpr
+    // Expr -> AssignExpr
     std::unique_ptr<Expr> parseExpression();
+
+    // AssignExpr -> LOrExpr ('=' AssignExpr)?
+    //   右结合：支持链式赋值 a = b = c
+    //   左值必须是标识符
+    std::unique_ptr<Expr> parseAssignmentExpr();
 
     // LOrExpr -> LAndExpr ( '||' LAndExpr )*
     std::unique_ptr<Expr> parseLogicalOr();

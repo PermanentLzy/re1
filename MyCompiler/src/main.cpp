@@ -26,6 +26,7 @@
 #include "ir/IRGenerator.h"
 #include "optimizer/Optimizer.h"
 #include "codegen/CodeGen.h"
+#include "codegen/CodeGenOptimized.h"
 #include "utils/ErrorHandler.h"
 
 #include <iostream>
@@ -107,6 +108,11 @@ int main(int argc, char *argv[])
     {
         Optimizer opt;
         opt.optimize(*irProgram);
+        if (std::getenv("DEBUG_IR"))
+        {
+            std::cerr << "=== IR AFTER OPTIMIZATION ===\n";
+            irProgram->print();
+        }
     }
 
     // ---- 阶段 8：代码生成 → RISC-V 32 汇编 → stdout ----

@@ -44,6 +44,7 @@ class PerformanceScorer:
             "build/mycompiler.exe",
             "MyCompiler/build/Release/mycompiler.exe",
             "MyCompiler/build/Debug/mycompiler.exe",
+            "MyCompiler/build/mycompiler.exe",
             "./mycompiler.exe",
             "mycompiler.exe",
         ]
@@ -84,25 +85,27 @@ class PerformanceScorer:
             cmd = [self.compiler]
             if with_opt:
                 cmd.append("-opt")
-            
-            # 运行编译器
+
+            # 运行编译器（使用 utf-8 编码避免 GBK 解码错误）
             start = time.time()
             result = subprocess.run(
                 cmd,
                 input=source_code,
                 capture_output=True,
                 text=True,
+                encoding='utf-8',
+                errors='replace',
                 timeout=10
             )
             elapsed = time.time() - start
-            
+
             if result.returncode != 0:
-                return None, elapsed, result.stderr.strip() if result.stderr else "编译失败"
-            
+                return None, elapsed, (result.stderr or '').strip() if result.stderr else "编译失败"
+
             # 分析输出
-            asm_output = result.stdout.strip()
+            asm_output = (result.stdout or '').strip()
             asm_lines = len([line for line in asm_output.split('\n') if line.strip()])
-            
+
             return {
                 'asm_lines': asm_lines,
                 'compile_time': elapsed,
@@ -198,7 +201,21 @@ class PerformanceScorer:
                 for f in os.listdir(self.example_dir)
                 if f.endswith('.src')
             ])
-        
+
+        # 若默认目录不存在，尝试常见位置
+        if not example_files:
+            fallback_dirs = ["MyCompiler/examples", "examples", "../examples"]
+            for d in fallback_dirs:
+                if os.path.isdir(d):
+                    example_files = sorted([
+                        os.path.join(d, f)
+                        for f in os.listdir(d)
+                        if f.endswith('.src')
+                    ])
+                    if example_files:
+                        self.example_dir = d
+                        break
+
         if not example_files:
             print(f"❌ 未找到示例文件在 {self.example_dir}")
             return {}

@@ -1,0 +1,63 @@
+﻿==========================================================================================
+璇箟娴嬭瘯 - 鎬ц兘瀵规瘮 (valid 娴嬭瘯闆? 鍏?15 涓?
+==========================================================================================
+鏂囦欢                                orig琛?    opt琛?     鍑忓皯%     orig鏃堕棿      opt鏃堕棿     鐘舵€?
+------------------------------------------------------------------------------------------
+01_empty_main.tc                     23       18    21.7%    0.0187s    0.0164s      鉁?
+02_global_const.tc                   27       22    18.5%    0.0240s    0.0192s      鉁?
+03_global_var.tc                     37       32    13.5%    0.0196s    0.0193s      鉁?
+04_const_expr_chain.tc               49       22    55.1%    0.0206s    0.0231s      鉁?
+05_function_with_params.tc           53       43    18.9%    0.0193s    0.0221s      鉁?
+06_recursive_function.tc              -        -        -          -          -      鉁?Parse error at 3:28 - Expected ')' after arguments
+07_void_function.tc                  43       33    23.3%    0.0183s    0.0177s      鉁?
+08_local_shadowing.tc                28       18    35.7%    0.0181s    0.0198s      鉁?
+09_nested_blocks.tc                  27       18    33.3%    0.0159s    0.0278s      鉁?
+10_if_else_chain.tc                  65       45    30.8%    0.0175s    0.0163s      鉁?
+11_while_loop.tc                     77       72     6.5%    0.0161s    0.0180s      鉁?
+12_logical_ops.tc                   102       44    56.9%    0.0167s    0.0168s      鉁?
+13_arithmetic_expr.tc                53       18    66.0%    0.0169s    0.0162s      鉁?
+14_const_with_ops.tc                 59       22    62.7%    0.0157s    0.0162s      鉁?
+15_multiple_funcs.tc                107       87    18.7%    0.0167s    0.0175s      鉁?
+------------------------------------------------------------------------------------------
+閫氳繃: 14/15, 澶辫触: 1
+骞冲潎浠ｇ爜鍑忓皯: 33.0%, 鎬讳唬鐮佸噺灏? 34.1%
+鍘熷鎬昏鏁? 750, 浼樺寲鍚庢€昏鏁? 494
+
+==========================================================================================
+examples/*.src 娴嬭瘯锛堜笌 performance_scorer 涓€鑷达級
+==========================================================================================
+鏂囦欢                                     orig琛?    opt琛?     鍑忓皯%     鐘舵€?
+------------------------------------------------------------------------------------------
+arith.src                                 77       18    76.6%      鉁?
+control.src                               63       58     7.9%      鉁?
+test01_arith.src                          59       18    69.5%      鉁?
+test02_precedence.src                     69       18    73.9%      鉁?
+test03_relational.src                    135       84    37.8%      鉁?
+test04_logical.src                       188      136    27.7%      鉁?
+test05_unary.src                          70       18    74.3%      鉁?
+test06_if.src                             71       48    32.4%      鉁?
+test07_while.src                          52       47     9.6%      鉁?
+test08_break_continue.src                 77       72     6.5%      鉁?
+test09_nested_while.src                   76       71     6.6%      鉁?
+test10_assign.src                          -        -        -      鉁?Parse error at 5:11 - Expected ';' after assignmen
+test11_func_call.src                      85       70    17.6%      鉁?
+test12_multi_param.src                    69       59    14.5%      鉁?
+test13_recursive.src                      84       74    11.9%      鉁?
+test14_void_func.src                       -        -        -      鉁?Parse error at 2:12 - Declaration must be initiali
+test15_scope.src                           -        -        -      鉁?Parse error at 2:6 - Declaration must be initializ
+test16_global_var.src                      -        -        -      鉁?Parse error at 2:6 - Declaration must be initializ
+test17_const.src                          43       18    58.1%      鉁?
+test18_global_const.src                   67       55    17.9%      鉁?
+test19_empty_return.src                   33       20    39.4%      鉁?
+test20_complex_expr.src                   89       59    33.7%      鉁?
+test21_comprehensive.src                   -        -        -      鉁?Parse error at 2:10 - Declaration must be initiali
+test22_mod_div.src                        90       18    80.0%      鉁?
+test23_cond_expr.src                       -        -        -      鉁?Parse error at 2:6 - Declaration must be initializ
+test24_nested_if_else.src                 57       34    40.4%      鉁?
+test25_while_condition.src                67       50    25.4%      鉁?
+test26_mutual_rec.src                      -        -        -      鉁?Parse error at 2:17 - Expected '{' to start block.
+test27_deep_expr.src                      95       80    15.8%      鉁?
+vars.src                                  58       21    63.8%      鉁?
+------------------------------------------------------------------------------------------
+閫氳繃: 23/30
+骞冲潎浠ｇ爜鍑忓皯: 36.6%, 鎬讳唬鐮佸噺灏? 35.4%

@@ -1,0 +1,460 @@
+{
+  "tests": {
+    "arith.src": {
+      "passed": true,
+      "original": {
+        "asm_lines": 68,
+        "compile_time": 0.023131370544433594
+      },
+      "optimized": {
+        "asm_lines": 13,
+        "compile_time": 0.019797325134277344
+      },
+      "improvement": {
+        "code_reduction_percent": 80.88235294117648,
+        "speedup_percent": 14.413522984951557
+      }
+    },
+    "control.src": {
+      "passed": true,
+      "original": {
+        "asm_lines": 54,
+        "compile_time": 0.024283647537231445
+      },
+      "optimized": {
+        "asm_lines": 36,
+        "compile_time": 0.023463964462280273
+      },
+      "improvement": {
+        "code_reduction_percent": 33.33333333333333,
+        "speedup_percent": 3.3754528585314127
+      }
+    },
+    "test01_arith.src": {
+      "passed": true,
+      "original": {
+        "asm_lines": 54,
+        "compile_time": 0.01985931396484375
+      },
+      "optimized": {
+        "asm_lines": 13,
+        "compile_time": 0.021197080612182617
+      },
+      "improvement": {
+        "code_reduction_percent": 75.92592592592592,
+        "speedup_percent": -6.736217825585862
+      }
+    },
+    "test02_precedence.src": {
+      "passed": true,
+      "original": {
+        "asm_lines": 62,
+        "compile_time": 0.016998767852783203
+      },
+      "optimized": {
+        "asm_lines": 13,
+        "compile_time": 0.01634836196899414
+      },
+      "improvement": {
+        "code_reduction_percent": 79.03225806451613,
+        "speedup_percent": 3.8261942831495976
+      }
+    },
+    "test03_relational.src": {
+      "passed": true,
+      "original": {
+        "asm_lines": 118,
+        "compile_time": 0.016045331954956055
+      },
+      "optimized": {
+        "asm_lines": 49,
+        "compile_time": 0.016445636749267578
+      },
+      "improvement": {
+        "code_reduction_percent": 58.47457627118644,
+        "speedup_percent": -2.4948364760249038
+      }
+    },
+    "test04_logical.src": {
+      "passed": true,
+      "original": {
+        "asm_lines": 165,
+        "compile_time": 0.017505645751953125
+      },
+      "optimized": {
+        "asm_lines": 99,
+        "compile_time": 0.016028881072998047
+      },
+      "improvement": {
+        "code_reduction_percent": 40.0,
+        "speedup_percent": 8.435933754630637
+      }
+    },
+    "test05_unary.src": {
+      "passed": true,
+      "original": {
+        "asm_lines": 54,
+        "compile_time": 0.015549659729003906
+      },
+      "optimized": {
+        "asm_lines": 13,
+        "compile_time": 0.01607513427734375
+      },
+      "improvement": {
+        "code_reduction_percent": 75.92592592592592,
+        "speedup_percent": -3.3793314934069305
+      }
+    },
+    "test06_if.src": {
+      "passed": true,
+      "original": {
+        "asm_lines": 62,
+        "compile_time": 0.01618361473083496
+      },
+      "optimized": {
+        "asm_lines": 33,
+        "compile_time": 0.01698017120361328
+      },
+      "improvement": {
+        "code_reduction_percent": 46.774193548387096,
+        "speedup_percent": -4.921993547341593
+      }
+    },
+    "test07_while.src": {
+      "passed": true,
+      "original": {
+        "asm_lines": 44,
+        "compile_time": 0.019620656967163086
+      },
+      "optimized": {
+        "asm_lines": 31,
+        "compile_time": 0.02483677864074707
+      },
+      "improvement": {
+        "code_reduction_percent": 29.545454545454547,
+        "speedup_percent": -26.584847196062945
+      }
+    },
+    "test08_break_continue.src": {
+      "passed": true,
+      "original": {
+        "asm_lines": 67,
+        "compile_time": 0.020214319229125977
+      },
+      "optimized": {
+        "asm_lines": 49,
+        "compile_time": 0.017716407775878906
+      },
+      "improvement": {
+        "code_reduction_percent": 26.865671641791046,
+        "speedup_percent": 12.357138644807454
+      }
+    },
+    "test09_nested_while.src": {
+      "passed": true,
+      "original": {
+        "asm_lines": 66,
+        "compile_time": 0.028077363967895508
+      },
+      "optimized": {
+        "asm_lines": 49,
+        "compile_time": 0.022617340087890625
+      },
+      "improvement": {
+        "code_reduction_percent": 25.757575757575758,
+        "speedup_percent": 19.446355029083342
+      }
+    },
+    "test10_assign.src": {
+      "passed": true,
+      "original": {
+        "asm_lines": 48,
+        "compile_time": 0.025685787200927734
+      },
+      "optimized": {
+        "asm_lines": 33,
+        "compile_time": 0.0166933536529541
+      },
+      "improvement": {
+        "code_reduction_percent": 31.25,
+        "speedup_percent": 35.00937494198674
+      }
+    },
+    "test11_func_call.src": {
+      "passed": true,
+      "original": {
+        "asm_lines": 72,
+        "compile_time": 0.02498459815979004
+      },
+      "optimized": {
+        "asm_lines": 57,
+        "compile_time": 0.0204160213470459
+      },
+      "improvement": {
+        "code_reduction_percent": 20.833333333333336,
+        "speedup_percent": 18.28557250961419
+      }
+    },
+    "test12_multi_param.src": {
+      "passed": true,
+      "original": {
+        "asm_lines": 57,
+        "compile_time": 0.034110069274902344
+      },
+      "optimized": {
+        "asm_lines": 47,
+        "compile_time": 0.033719778060913086
+      },
+      "improvement": {
+        "code_reduction_percent": 17.543859649122805,
+        "speedup_percent": 1.144211144350938
+      }
+    },
+    "test13_recursive.src": {
+      "passed": true,
+      "original": {
+        "asm_lines": 73,
+        "compile_time": 0.024660348892211914
+      },
+      "optimized": {
+        "asm_lines": 55,
+        "compile_time": 0.027450084686279297
+      },
+      "improvement": {
+        "code_reduction_percent": 24.65753424657534,
+        "speedup_percent": -11.312637166088193
+      }
+    },
+    "test14_void_func.src": {
+      "passed": true,
+      "original": {
+        "asm_lines": 49,
+        "compile_time": 0.017685413360595703
+      },
+      "optimized": {
+        "asm_lines": 40,
+        "compile_time": 0.017307043075561523
+      },
+      "improvement": {
+        "code_reduction_percent": 18.367346938775512,
+        "speedup_percent": 2.139448353959395
+      }
+    },
+    "test15_scope.src": {
+      "passed": true,
+      "original": {
+        "asm_lines": 64,
+        "compile_time": 0.01985025405883789
+      },
+      "optimized": {
+        "asm_lines": 35,
+        "compile_time": 0.021219968795776367
+      },
+      "improvement": {
+        "code_reduction_percent": 45.3125,
+        "speedup_percent": -6.900237814984746
+      }
+    },
+    "test16_global_var.src": {
+      "passed": true,
+      "original": {
+        "asm_lines": 69,
+        "compile_time": 0.01812124252319336
+      },
+      "optimized": {
+        "asm_lines": 59,
+        "compile_time": 0.016177892684936523
+      },
+      "improvement": {
+        "code_reduction_percent": 14.492753623188406,
+        "speedup_percent": 10.724153356313975
+      }
+    },
+    "test17_const.src": {
+      "passed": true,
+      "original": {
+        "asm_lines": 36,
+        "compile_time": 0.02135181427001953
+      },
+      "optimized": {
+        "asm_lines": 13,
+        "compile_time": 0.01691293716430664
+      },
+      "improvement": {
+        "code_reduction_percent": 63.888888888888886,
+        "speedup_percent": 20.789226852472193
+      }
+    },
+    "test18_global_const.src": {
+      "passed": true,
+      "original": {
+        "asm_lines": 58,
+        "compile_time": 0.018614530563354492
+      },
+      "optimized": {
+        "asm_lines": 30,
+        "compile_time": 0.01935124397277832
+      },
+      "improvement": {
+        "code_reduction_percent": 48.275862068965516,
+        "speedup_percent": -3.9577329490874162
+      }
+    },
+    "test19_empty_return.src": {
+      "passed": true,
+      "original": {
+        "asm_lines": 27,
+        "compile_time": 0.01628565788269043
+      },
+      "optimized": {
+        "asm_lines": 15,
+        "compile_time": 0.02664780616760254
+      },
+      "improvement": {
+        "code_reduction_percent": 44.44444444444444,
+        "speedup_percent": -63.627446674572155
+      }
+    },
+    "test20_complex_expr.src": {
+      "passed": true,
+      "original": {
+        "asm_lines": 78,
+        "compile_time": 0.019531965255737305
+      },
+      "optimized": {
+        "asm_lines": 44,
+        "compile_time": 0.020955801010131836
+      },
+      "improvement": {
+        "code_reduction_percent": 43.58974358974359,
+        "speedup_percent": -7.289772103072398
+      }
+    },
+    "test21_comprehensive.src": {
+      "passed": true,
+      "original": {
+        "asm_lines": 169,
+        "compile_time": 0.023593664169311523
+      },
+      "optimized": {
+        "asm_lines": 129,
+        "compile_time": 0.022095680236816406
+      },
+      "improvement": {
+        "code_reduction_percent": 23.668639053254438,
+        "speedup_percent": 6.349094069261008
+      }
+    },
+    "test22_mod_div.src": {
+      "passed": true,
+      "original": {
+        "asm_lines": 77,
+        "compile_time": 0.0192415714263916
+      },
+      "optimized": {
+        "asm_lines": 13,
+        "compile_time": 0.030500411987304688
+      },
+      "improvement": {
+        "code_reduction_percent": 83.11688311688312,
+        "speedup_percent": -58.513103277368195
+      }
+    },
+    "test23_cond_expr.src": {
+      "passed": true,
+      "original": {
+        "asm_lines": 66,
+        "compile_time": 0.02530670166015625
+      },
+      "optimized": {
+        "asm_lines": 40,
+        "compile_time": 0.021867036819458008
+      },
+      "improvement": {
+        "code_reduction_percent": 39.39393939393939,
+        "speedup_percent": 13.591912873078083
+      }
+    },
+    "test24_nested_if_else.src": {
+      "passed": true,
+      "original": {
+        "asm_lines": 50,
+        "compile_time": 0.019504785537719727
+      },
+      "optimized": {
+        "asm_lines": 29,
+        "compile_time": 0.019841432571411133
+      },
+      "improvement": {
+        "code_reduction_percent": 42.0,
+        "speedup_percent": -1.725971470131648
+      }
+    },
+    "test25_while_condition.src": {
+      "passed": true,
+      "original": {
+        "asm_lines": 58,
+        "compile_time": 0.020713090896606445
+      },
+      "optimized": {
+        "asm_lines": 33,
+        "compile_time": 0.019426822662353516
+      },
+      "improvement": {
+        "code_reduction_percent": 43.103448275862064,
+        "speedup_percent": 6.209928980052258
+      }
+    },
+    "test26_mutual_rec.src": {
+      "passed": true,
+      "original": {
+        "asm_lines": 168,
+        "compile_time": 0.021270751953125
+      },
+      "optimized": {
+        "asm_lines": 123,
+        "compile_time": 0.017939329147338867
+      },
+      "improvement": {
+        "code_reduction_percent": 26.785714285714285,
+        "speedup_percent": 15.661988880918221
+      }
+    },
+    "test27_deep_expr.src": {
+      "passed": true,
+      "original": {
+        "asm_lines": 79,
+        "compile_time": 0.018194198608398438
+      },
+      "optimized": {
+        "asm_lines": 64,
+        "compile_time": 0.019893169403076172
+      },
+      "improvement": {
+        "code_reduction_percent": 18.9873417721519,
+        "speedup_percent": -9.337980920431912
+      }
+    },
+    "vars.src": {
+      "passed": true,
+      "original": {
+        "asm_lines": 48,
+        "compile_time": 0.02152848243713379
+      },
+      "optimized": {
+        "asm_lines": 16,
+        "compile_time": 0.01718735694885254
+      },
+      "improvement": {
+        "code_reduction_percent": 66.66666666666666,
+        "speedup_percent": 20.164568036590364
+      }
+    }
+  },
+  "summary": {
+    "avg_code_reduction": 42.96320557675941,
+    "avg_speedup": 0.17139895465308239,
+    "pass_rate": 1.0,
+    "performance_score": 49.30452300624128
+  }
+}

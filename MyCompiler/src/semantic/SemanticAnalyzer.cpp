@@ -132,6 +132,10 @@ void SemanticAnalyzer::visit(VarDeclStmt& n) {
     sym.scopeLevel = symtab_.currentLevel();
     sym.initialized = (n.init != nullptr);
     sym.isConst = n.isConst;
+    // 全局非 const 变量按 C 语义默认初始化为 0，允许后续读取
+    if (symtab_.atGlobalScope() && !n.isConst) {
+        sym.initialized = true;
+    }
     if (!symtab_.define(sym)) {
         error(MSG("变量 '", "Variable '") + n.name +
               MSG("' 在当前作用域中已定义", "' already defined in this scope."));

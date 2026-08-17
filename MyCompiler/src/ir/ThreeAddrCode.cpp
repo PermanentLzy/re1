@@ -54,9 +54,9 @@ std::string TACInstruction::toString() const {
 }
 
 void TACProgram::print() const {
-    // TODO: for (i : instructions) std::cout << i << ": " << instructions[i].toString()
+    // DEBUG: print to stderr so stdout stays clean for assembly output
     for (size_t i = 0 ; i < instructions.size(); ++i) {
-        std::cout << i << ": " << instructions[i].toString() << "\n";
+        std::cerr << i << ": " << instructions[i].toString() << "\n";
     }
 }
 

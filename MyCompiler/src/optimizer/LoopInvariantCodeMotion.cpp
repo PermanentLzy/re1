@@ -3,30 +3,29 @@
 #include <unordered_set>
 #include <unordered_map>
 #include <vector>
+#include <algorithm>
 
 namespace MyCompiler {
 
 // ================================================================
 //  循环不变式提取（Loop Invariant Code Motion - LICM）
-//  
-//  原理：
-//    1. 识别循环结构（由 LABEL → ... → IF_GOTO(循环条件) → ... → GOTO(回到LABEL)）
-//    2. 在循环内查找不变式：操作数都来自循环外或是常数的指令
-//    3. 将不变式移到循环前（向前）
-//    4. 可能需要多轮迭代（可能有链式不变式）
+//
+//  正确性条件（一条指令可被安全地提到循环外）：
+//    1. 指令是 "纯计算" (ASSIGN / BINARY / UNARY)，无副作用
+//    2. 所有操作数都是 "循环不变"：
+//       - 常数 (CONST_INT / NONE)
+//       - 在循环外定义 且 在循环体内没有被重新定义
+//       - 由本趟已识别的循环不变式定义（链式）
+//    3. 指令的 result 在循环体内只被定义一次（避免覆盖）
+//    4. 指令不能抛异常 / 不能是除零等可能失败的操作（保守起见，包含 div/rem 时跳过）
 // ================================================================
 
-/// 辅助：判断操作数是否在给定的集合中定义过
-static bool isDefined(const TACOperand& op, const std::unordered_set<std::string>& defined) {
-    if (op.type == TACOpType::CONST_INT) return true;
-    if (op.type == TACOpType::NONE) return true;
-    if (op.type == TACOpType::VAR || op.type == TACOpType::TEMP) {
-        return defined.find(op.name) != defined.end();
-    }
-    return false;
+/// 判断操作数是否为常数类（CONST_INT 或 NONE）
+static bool isConstLike(const TACOperand& op) {
+    return op.type == TACOpType::CONST_INT || op.type == TACOpType::NONE;
 }
 
-/// 辅助：获取指令的所有操作数
+/// 收集指令使用到的操作数（lhs、rhs，但不包含 result）
 static std::vector<TACOperand> getUsedOperands(const TACInstruction& instr) {
     std::vector<TACOperand> ops;
     if (instr.lhs.type != TACOpType::NONE) ops.push_back(instr.lhs);
@@ -34,139 +33,152 @@ static std::vector<TACOperand> getUsedOperands(const TACInstruction& instr) {
     return ops;
 }
 
+/// 判断变量名是否定义在某条指令的 result 中
+static bool instrDefines(const TACInstruction& instr, const std::string& name) {
+    if (name.empty()) return false;
+    if (instr.result.type != TACOpType::VAR && instr.result.type != TACOpType::TEMP)
+        return false;
+    return instr.result.name == name;
+}
+
 void Optimizer::loopInvariantCodeMotion(TACProgram& program) {
-    // 识别循环：使用支配树或简单的基于标签的方法
-    // 这里我们用简单的启发式：LABEL → ... → GOTO(回到LABEL)
-    
-    std::unordered_map<std::string, std::pair<int, int>> loops; // 标签 → (start_idx, end_idx)
     std::vector<TACInstruction>& instrs = program.instructions;
-    
-    // 第一遍：找出所有循环的起点和终点
+    if (instrs.empty()) return;
+
+    // ---- 第 1 遍：找出所有循环结构 ----
+    // 启发式：LABEL L → ... → GOTO L  形成一个自然循环
+    struct Loop { int head; int body_start; int body_end; };
+    std::vector<Loop> loops;
+
     for (size_t i = 0; i < instrs.size(); ++i) {
-        if (instrs[i].type == TACType::LABEL) {
-            std::string loopLabel = instrs[i].label;
-            
-            // 寻找回到这个标签的 GOTO
-            for (size_t j = i + 1; j < instrs.size(); ++j) {
-                if (instrs[j].type == TACType::GOTO && instrs[j].label == loopLabel) {
-                    loops[loopLabel] = {i, j};
-                    break;
-                }
+        if (instrs[i].type != TACType::LABEL) continue;
+        const std::string& loopLabel = instrs[i].label;
+        // 在 i 之后找一条 GOTO 跳回 loopLabel
+        for (size_t j = i + 1; j < instrs.size(); ++j) {
+            if (instrs[j].type == TACType::GOTO && instrs[j].label == loopLabel) {
+                Loop lp;
+                lp.head = static_cast<int>(i);
+                lp.body_start = static_cast<int>(i) + 1;
+                lp.body_end = static_cast<int>(j); // 不包含 GOTO 本身
+                loops.push_back(lp);
+                break;
             }
         }
     }
-    
-    if (loops.empty()) return; // 没有找到循环
-    
-    // 第二遍：对每个循环做 LICM
-    for (auto& [loopLabel, range] : loops) {
-        int loopStart = range.first;
-        int loopEnd = range.second;
-        
-        // 循环内的指令范围（不包括标签和最后的 GOTO）
-        std::vector<int> loopBody;
-        for (int i = loopStart + 1; i < loopEnd; ++i) {
-            loopBody.push_back(i);
+
+    if (loops.empty()) {
+        std::cerr << "[LICM] 未发现循环\n";
+        return;
+    }
+
+    int totalHoisted = 0;
+
+    // ---- 第 2 遍：对每个循环做不变式提取 ----
+    for (const auto& lp : loops) {
+        // 收集循环体内（body_start..body_end）所有定义的变量名
+        std::unordered_set<std::string> definedInLoop;
+        std::unordered_map<std::string, int> defCount; // 变量在循环内被定义的次数
+        for (int idx = lp.body_start; idx < lp.body_end; ++idx) {
+            const auto& instr = instrs[idx];
+            if (instr.result.type == TACOpType::VAR || instr.result.type == TACOpType::TEMP) {
+                if (!instr.result.name.empty()) {
+                    definedInLoop.insert(instr.result.name);
+                    defCount[instr.result.name]++;
+                }
+            }
         }
-        
-        if (loopBody.empty()) continue;
-        
-        // 循环前的"定义"集合（循环之前定义过的变量）
+
+        // 循环前已定义的变量名
         std::unordered_set<std::string> preLoopDef;
-        for (int i = 0; i < loopStart; ++i) {
-            if (instrs[i].result.type == TACOpType::VAR || 
-                instrs[i].result.type == TACOpType::TEMP) {
-                preLoopDef.insert(instrs[i].result.name);
+        for (int i = 0; i < lp.head; ++i) {
+            const auto& instr = instrs[i];
+            if (instr.result.type == TACOpType::VAR || instr.result.type == TACOpType::TEMP) {
+                if (!instr.result.name.empty()) preLoopDef.insert(instr.result.name);
             }
         }
-        
-        // 迭代找不变式并提出
+
+        // 迭代找不变式（可能存在链式依赖：t1 = a+b; t2 = t1*c;）
+        std::vector<int> invariantIndices;
+        std::unordered_set<std::string> invariantVars; // 这些变量现在视为循环外定义
+
         bool changed = true;
-        int iterations = 0;
-        const int MAX_ITER = 10;
-        
-        while (changed && iterations < MAX_ITER) {
+        int maxIter = 10;
+        while (changed && maxIter-- > 0) {
             changed = false;
-            ++iterations;
-            
-            std::vector<int> invariants; // 待提出的指令索引
-            std::unordered_set<std::string> loopDef = preLoopDef;
-            
-            // 遍历循环体指令，找不变式
-            for (int idx : loopBody) {
-                auto& instr = instrs[idx];
-                
-                // 跳过控制流指令
-                if (instr.type == TACType::LABEL || 
-                    instr.type == TACType::GOTO || 
-                    instr.type == TACType::IF_GOTO ||
-                    instr.type == TACType::CALL ||
-                    instr.type == TACType::RETURN) {
-                    if ((instr.result.type == TACOpType::VAR || 
-                         instr.result.type == TACOpType::TEMP) && !instr.result.name.empty()) {
-                        loopDef.insert(instr.result.name);
-                    }
+            for (int idx = lp.body_start; idx < lp.body_end; ++idx) {
+                if (std::find(invariantIndices.begin(), invariantIndices.end(), idx) != invariantIndices.end())
                     continue;
+
+                const auto& instr = instrs[idx];
+
+                // 仅处理纯计算
+                if (instr.type != TACType::ASSIGN &&
+                    instr.type != TACType::BINARY &&
+                    instr.type != TACType::UNARY)
+                    continue;
+
+                // 保守：包含除法/求模的指令不外提（避免除零行为变化）
+                if (instr.type == TACType::BINARY &&
+                    (instr.op == "/" || instr.op == "%")) {
+                    // 仍可外提，但要求除数是常数非零
+                    if (instr.rhs.type != TACOpType::CONST_INT || instr.rhs.intValue == 0)
+                        continue;
                 }
-                
-                // 检查该指令是否是不变式
-                // 条件：操作数都在循环前已定义或是常数
+
+                // result 必须在循环内只被定义一次（避免把多次赋值之一的版本提到外面）
+                if (instr.result.type == TACOpType::VAR || instr.result.type == TACOpType::TEMP) {
+                    if (defCount[instr.result.name] > 1) continue;
+                }
+
+                // 所有操作数必须是不变量
                 auto usedOps = getUsedOperands(instr);
-                bool isInvariant = true;
-                for (auto& op : usedOps) {
-                    if (!isDefined(op, loopDef)) {
-                        isInvariant = false;
-                        break;
+                bool allInvariant = true;
+                for (const auto& op : usedOps) {
+                    if (isConstLike(op)) continue;
+                    if (op.type != TACOpType::VAR && op.type != TACOpType::TEMP) {
+                        allInvariant = false; break;
                     }
+                    // 不变条件：在循环前定义 且 循环内未重定义，或者本身就是本趟识别出的不变式
+                    bool isInvariant =
+                        (preLoopDef.count(op.name) && !definedInLoop.count(op.name)) ||
+                        invariantVars.count(op.name);
+                    if (!isInvariant) { allInvariant = false; break; }
                 }
-                
-                if (isInvariant && (instr.type == TACType::ASSIGN ||
-                                   instr.type == TACType::BINARY ||
-                                   instr.type == TACType::UNARY)) {
-                    invariants.push_back(idx);
-                    changed = true;
+                if (!allInvariant) continue;
+
+                invariantIndices.push_back(idx);
+                if (instr.result.type == TACOpType::VAR || instr.result.type == TACOpType::TEMP) {
+                    invariantVars.insert(instr.result.name);
                 }
-                
-                // 更新循环内的定义集合
-                if ((instr.result.type == TACOpType::VAR || 
-                     instr.result.type == TACOpType::TEMP) && !instr.result.name.empty()) {
-                    loopDef.insert(instr.result.name);
-                }
-            }
-            
-            // 将不变式移到循环外（在循环前）
-            if (!invariants.empty()) {
-                std::vector<TACInstruction> newInstrs;
-                std::unordered_set<int> invariantSet(invariants.begin(), invariants.end());
-                
-                for (size_t i = 0; i < instrs.size(); ++i) {
-                    if (static_cast<int>(i) == loopStart) {
-                        // 在循环开始前插入所有不变式
-                        for (int invIdx : invariants) {
-                            newInstrs.push_back(instrs[invIdx]);
-                        }
-                        newInstrs.push_back(instrs[i]);
-                    } else if (invariantSet.find(i) == invariantSet.end()) {
-                        // 其他指令正常添加
-                        newInstrs.push_back(instrs[i]);
-                    }
-                }
-                
-                instrs = std::move(newInstrs);
-                
-                // 重新调整循环范围
-                loopEnd -= invariants.size();
-                
-                // 重新计算 loopBody
-                loopBody.clear();
-                for (int i = loopStart + 1; i < loopEnd; ++i) {
-                    loopBody.push_back(i);
-                }
+                changed = true;
             }
         }
+
+        if (invariantIndices.empty()) continue;
+
+        // 把这些不变式从原位置删除，插入到循环 head 之前
+        std::sort(invariantIndices.begin(), invariantIndices.end());
+
+        std::vector<TACInstruction> newInstrs;
+        std::unordered_set<int> toRemove(invariantIndices.begin(), invariantIndices.end());
+
+        for (size_t i = 0; i < instrs.size(); ++i) {
+            if (static_cast<int>(i) == lp.head) {
+                // 在 LABEL 之前插入不变式
+                for (int invIdx : invariantIndices)
+                    newInstrs.push_back(instrs[invIdx]);
+            }
+            if (toRemove.find(static_cast<int>(i)) != toRemove.end())
+                continue; // 跳过已外提的指令
+            newInstrs.push_back(instrs[i]);
+        }
+
+        instrs = std::move(newInstrs);
+        totalHoisted += static_cast<int>(invariantIndices.size());
     }
-    
-    std::cerr << "[LICM] 完成，找到 " << loops.size() << " 个循环\n";
+
+    std::cerr << "[LICM] 完成，发现 " << loops.size() << " 个循环, 外提 "
+              << totalHoisted << " 条不变式\n";
 }
 
 } // namespace MyCompiler
