@@ -19,13 +19,14 @@ namespace MyCompiler
 
         bool changed = true;
         int iter = 0;
-        const int MAX_ITER = 10;
+        const int MAX_ITER = 3;
 
         while (changed && iter < MAX_ITER)
         {
             changed = false;
             size_t before = program.instructions.size();
 
+            copyPropagation(program);                // 复写传播
             constantFolding(program);                // 常量折叠
             commonSubexpressionElimination(program); // 公共子表达式消除（CSE）
             deadCodeElimination(program);            // 死代码删除（DCE）

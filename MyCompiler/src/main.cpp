@@ -33,6 +33,10 @@
 #include <sstream>
 #include <string>
 #include <cstring>
+#ifdef _WIN32
+#include <io.h>
+#include <fcntl.h>
+#endif
 
 using namespace MyCompiler;
 
@@ -45,6 +49,11 @@ namespace MyCompiler
 // ================================================================
 int main(int argc, char *argv[])
 {
+    // ---- Windows: 将 stdout 设为二进制模式，避免 \n 被转换为 \r\n ----
+#ifdef _WIN32
+    _setmode(_fileno(stdout), _O_BINARY);
+#endif
+
     // ---- 解析 -opt 参数 ----
     bool enableOpt = false;
     for (int i = 1; i < argc; ++i)

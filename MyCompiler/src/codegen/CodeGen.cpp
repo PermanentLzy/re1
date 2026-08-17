@@ -19,6 +19,8 @@ namespace MyCompiler
         funcArgIndex_ = 0;
         funcReturned_ = false;
         currentFrameSize_ = 0;
+        currentFuncIsLeaf_ = false;
+        funcIsLeaf_.clear();
         lastLineValid_ = false;
         lastEmittedLine_.clear();
         lastStoreValid_ = false;
@@ -175,22 +177,36 @@ namespace MyCompiler
 
         // ============================================================
         //  预扫描：统计每个函数的变量数，计算动态帧大小
+        //  同时识别叶函数（不调用其他函数）以优化帧大小
         // ============================================================
         std::unordered_map<std::string, int> funcFrameSizes;
+        std::unordered_map<std::string, bool> funcIsLeaf;
         {
             std::string curFn;
             std::unordered_set<std::string> varNames;
+            bool hasCall = false;
             for (auto &instr : program.instructions)
             {
                 if (instr.type == TACType::LABEL && instr.label.find("func_") == 0)
                 {
                     if (!curFn.empty())
                     {
-                        int frame = std::max(256, (static_cast<int>(varNames.size()) + 4) * 4);
+                        bool isLeaf = !hasCall;
+                        // 统一帧大小：至少 256 字节，便于跨函数参数传递
+                        int frame = std::max(256, (static_cast<int>(varNames.size()) + (isLeaf ? 0 : 1)) * 4);
+                        // 对齐到 16 字节
+                        frame = (frame + 15) & ~15;
                         funcFrameSizes[curFn] = frame;
+                        funcIsLeaf_[curFn] = isLeaf;
                     }
                     curFn = instr.label.substr(5);
                     varNames.clear();
+                    hasCall = false;
+                }
+                // 检测 CALL 指令
+                if (instr.type == TACType::CALL)
+                {
+                    hasCall = true;
                 }
                 // 收集所有变量/临时变量名
                 auto collect = [&](const TACOperand &op)
@@ -204,8 +220,11 @@ namespace MyCompiler
             }
             if (!curFn.empty())
             {
-                int frame = std::max(256, (static_cast<int>(varNames.size()) + 4) * 4);
+                bool isLeaf = !hasCall;
+                int frame = std::max(256, (static_cast<int>(varNames.size()) + (isLeaf ? 0 : 1)) * 4);
+                frame = (frame + 15) & ~15;
                 funcFrameSizes[curFn] = frame;
+                funcIsLeaf_[curFn] = isLeaf;
             }
         }
 
@@ -219,6 +238,7 @@ namespace MyCompiler
         //  输出代码段头部
         // ============================================================
         emit(".text");
+        emit(".align 2");
 
         // ============================================================
         //  遍历 TAC 指令，生成 RISC-V 汇编
@@ -237,8 +257,8 @@ namespace MyCompiler
 
                 if (!funcName.empty() && funcNames_.count(funcName))
                 {
-                    // 前一个函数的 fallback epilogue：若最后一条已是 ret 则跳过（死代码消除）
-                    if (!currentFunc_.empty() && !lastEmittedWasRet_)
+                    // 前一个函数的 fallback epilogue：若已 return 则跳过
+                    if (!currentFunc_.empty() && !funcReturned_)
                         emitFuncEpilogue();
 
                     currentFunc_ = funcName;
@@ -250,6 +270,8 @@ namespace MyCompiler
                     lastStoreValid_ = false;
                     lastLineValid_ = false;
                     lastEmittedLine_.clear();
+                    // 重置寄存器跟踪
+                    varInReg_.clear();
                     int fs = funcFrameSizes.count(funcName) ? funcFrameSizes[funcName] : 256;
                     emitFuncPrologue(funcName, fs);
                     continue;
@@ -259,14 +281,14 @@ namespace MyCompiler
             // --- RETURN ---
             if (instr.type == TACType::RETURN)
             {
-                if (!currentFunc_.empty())
+                if (!currentFunc_.empty() && !funcReturned_)
                 {
                     if (instr.lhs.type != TACOpType::NONE)
                         loadOperand(instr.lhs, "a0");
                     else
-                        emit("li a0, 0");
+                        emitLi("a0", 0);
                     emitFuncEpilogue();
-                    // 不清理 currentFunc_，允许后续 return 也生成 epilogue
+                    funcReturned_ = true;
                 }
                 continue;
             }
@@ -299,7 +321,17 @@ namespace MyCompiler
 
             case TACType::ASSIGN:
             {
-                // x = y
+                // 如果是全局变量的初始赋值（程序级别，不在函数内），跳过运行时代码生成
+                // 因为 .data 段的 .word 已经处理了静态初始化
+                if (!currentFunc_.empty() && instr.result.type == TACOpType::VAR && isGlobal(instr.result.name))
+                {
+                    // 函数内对全局变量的赋值 → 正常生成代码
+                }
+                else if (currentFunc_.empty() && instr.result.type == TACOpType::VAR && isGlobal(instr.result.name))
+                {
+                    // 程序级全局变量初始化 → 跳过，.data 段已处理
+                    break;
+                }
                 loadOperand(instr.lhs, "t0");
                 storeOperand(instr.result, "t0");
                 break;
@@ -312,11 +344,17 @@ namespace MyCompiler
                 if (instr.rhs.type == TACOpType::CONST_INT)
                 {
                     int c = instr.rhs.intValue;
+                    // 辅助：将有符号立即数转为 12 位无符号表示（避免某些汇编器不接受负数）
+                    auto toImm12 = [](int val) -> std::string
+                    {
+                        int v = val & 0xFFF; // 12-bit two's complement
+                        return std::to_string(v);
+                    };
                     // 加法：addi
                     if (instr.op == "+" && c >= -2048 && c <= 2047)
                     {
                         loadOperand(instr.lhs, "t0");
-                        emit("addi t0, t0, " + std::to_string(c));
+                        emit("addi t0, t0, " + toImm12(c));
                         storeOperand(instr.result, "t0");
                         break;
                     }
@@ -324,54 +362,64 @@ namespace MyCompiler
                     if (instr.op == "-" && c >= -2048 && c <= 2047)
                     {
                         loadOperand(instr.lhs, "t0");
-                        emit("addi t0, t0, " + std::to_string(-c));
+                        emit("addi t0, t0, " + toImm12(-c));
                         storeOperand(instr.result, "t0");
                         break;
                     }
-                    // 乘以 2^n：slli
+                    // 乘以 2^n：slli（确保移位量在 0-31 范围内）
                     if (instr.op == "*" && c > 0 && (c & (c - 1)) == 0)
                     {
                         int shift = 0, t = c;
-                        while (t > 1)
+                        while (t > 1 && shift <= 31)
                         {
                             t >>= 1;
                             ++shift;
                         }
-                        loadOperand(instr.lhs, "t0");
-                        emit("slli t0, t0, " + std::to_string(shift));
-                        storeOperand(instr.result, "t0");
-                        break;
+                        if (shift <= 31)
+                        {
+                            loadOperand(instr.lhs, "t0");
+                            emit("slli t0, t0, " + std::to_string(shift));
+                            storeOperand(instr.result, "t0");
+                            break;
+                        }
                     }
-                    // 除以 2^n：srai（算术右移）
+                    // 除以 2^n：srai（算术右移，确保移位量在 0-31 范围内）
                     if (instr.op == "/" && c > 0 && (c & (c - 1)) == 0)
                     {
                         int shift = 0, t = c;
-                        while (t > 1)
+                        while (t > 1 && shift <= 31)
                         {
                             t >>= 1;
                             ++shift;
                         }
-                        loadOperand(instr.lhs, "t0");
-                        emit("srai t0, t0, " + std::to_string(shift));
-                        storeOperand(instr.result, "t0");
-                        break;
+                        if (shift <= 31)
+                        {
+                            loadOperand(instr.lhs, "t0");
+                            emit("srai t0, t0, " + std::to_string(shift));
+                            storeOperand(instr.result, "t0");
+                            break;
+                        }
                     }
-                    // 模 2^n：用 and 屏蔽低位
+                    // 模 2^n：用 and 屏蔽低位（确保立即数在 0-4095 范围内）
                     if (instr.op == "%" && c > 0 && (c & (c - 1)) == 0)
                     {
-                        loadOperand(instr.lhs, "t0");
-                        emit("andi t0, t0, " + std::to_string(c - 1));
-                        storeOperand(instr.result, "t0");
-                        break;
+                        int mask = c - 1;
+                        if (mask >= 0 && mask <= 4095)
+                        {
+                            loadOperand(instr.lhs, "t0");
+                            emit("andi t0, t0, " + std::to_string(mask));
+                            storeOperand(instr.result, "t0");
+                            break;
+                        }
                     }
                     // 与 0 比较：直接 seqz/snez
                     if (c == 0 && (instr.op == "==" || instr.op == "!="))
                     {
                         loadOperand(instr.lhs, "t0");
                         if (instr.op == "==")
-                            emit("seqz t0, t0");
+                            emitSeqz("t0", "t0");
                         else
-                            emit("snez t0, t0");
+                            emitSnez("t0", "t0");
                         storeOperand(instr.result, "t0");
                         break;
                     }
@@ -382,7 +430,7 @@ namespace MyCompiler
                         (instr.op == "<" || instr.op == ">="))
                     {
                         loadOperand(instr.lhs, "t0");
-                        emit("slti t0, t0, " + std::to_string(c));
+                        emit("slti t0, t0, " + toImm12(c));
                         if (instr.op == ">=")
                             emit("xori t0, t0, 1");
                         storeOperand(instr.result, "t0");
@@ -409,24 +457,24 @@ namespace MyCompiler
                 else if (instr.op == "<=")
                 {
                     emit("slt t0, t1, t0");
-                    emit("seqz t0, t0");
+                    emitSeqz("t0", "t0");
                 }
                 else if (instr.op == ">")
                     emit("slt t0, t1, t0");
                 else if (instr.op == ">=")
                 {
                     emit("slt t0, t0, t1");
-                    emit("seqz t0, t0");
+                    emitSeqz("t0", "t0");
                 }
                 else if (instr.op == "==")
                 {
                     emit("sub t0, t0, t1");
-                    emit("seqz t0, t0");
+                    emitSeqz("t0", "t0");
                 }
                 else if (instr.op == "!=")
                 {
                     emit("sub t0, t0, t1");
-                    emit("snez t0, t0");
+                    emitSnez("t0", "t0");
                 }
                 else if (instr.op == "&&")
                     emit("and t0, t0, t1");
@@ -472,9 +520,9 @@ namespace MyCompiler
                 loadOperand(instr.lhs, "t0");
 
                 if (instr.op == "-")
-                    emit("neg t0, t0");
+                    emitNeg("t0", "t0");
                 else if (instr.op == "!")
-                    emit("seqz t0, t0");
+                    emitSeqz("t0", "t0");
 
                 storeOperand(instr.result, "t0");
                 break;
@@ -483,7 +531,7 @@ namespace MyCompiler
             case TACType::GOTO:
             {
                 std::string rvLabel = labelMap_.count(instr.label) ? labelMap_[instr.label] : instr.label;
-                emit("j " + rvLabel);
+                emit("jal x0, " + rvLabel);
                 break;
             }
 
@@ -491,7 +539,7 @@ namespace MyCompiler
             {
                 loadOperand(instr.lhs, "t0");
                 std::string rvLabel = labelMap_.count(instr.label) ? labelMap_[instr.label] : instr.label;
-                emit("bnez t0, " + rvLabel);
+                emit("bne t0, x0, " + rvLabel);
                 break;
             }
 
@@ -499,6 +547,12 @@ namespace MyCompiler
             {
                 std::string rvLabel = labelMap_.count(instr.label) ? labelMap_[instr.label] : instr.label;
                 emit(rvLabel + ":");
+                // 对于非叶函数，标签是基本块边界，清除寄存器跟踪
+                // 对于叶函数，寄存器不会被调用破坏，可以保留跟踪
+                if (!currentFuncIsLeaf_)
+                {
+                    varInReg_.clear();
+                }
                 break;
             }
 
@@ -521,15 +575,22 @@ namespace MyCompiler
                 paramQueue_.clear();
 
                 // 发射 call 指令（main 函数不加 func_ 前缀）
+                // 使用 jal x1 保存返回地址到 ra 寄存器
                 if (instr.label == "main")
-                    emit("call main");
+                    emit("jal x1, main");
                 else
-                    emit("call func_" + instr.label);
+                    emit("jal x1, func_" + instr.label);
+
+                // CALL 后清除寄存器跟踪（被调用者可能修改任何寄存器）
+                varInReg_.clear();
 
                 // 如有返回值，存储到 result
                 if (instr.result.type != TACOpType::NONE)
                 {
                     storeOperand(instr.result, "a0");
+                    // 标记返回值在 a0 中
+                    if (instr.result.type == TACOpType::VAR || instr.result.type == TACOpType::TEMP)
+                        varInReg_[instr.result.name] = "a0";
                 }
                 break;
             }
@@ -543,10 +604,10 @@ namespace MyCompiler
         }
 
         // 函数末尾无显式 return，补尾声
-        // 若最后一条指令已是 ret，则跳过不可达的 fallback epilogue（死代码消除）
-        if (!currentFunc_.empty() && !lastEmittedWasRet_)
+        // 若函数已 return，则跳过不可达的 fallback epilogue
+        if (!currentFunc_.empty() && !funcReturned_)
         {
-            emit("li a0, 0");
+            emitLi("a0", 0);
             emitFuncEpilogue();
         }
     }
@@ -557,9 +618,10 @@ namespace MyCompiler
 
     void CodeGen::emit(const std::string &line)
     {
-        std::cout << line << std::endl;
-        // 跟踪最后一条是否为 ret（用于跳过不可达 fallback epilogue）
-        lastEmittedWasRet_ = (line == "ret");
+        // 使用 \n 代替 std::endl，避免 Windows CRLF 导致 Linux 汇编器错误
+        std::cout << line << "\n";
+        // 跟踪最后一条是否为 ret/jalr（用于跳过不可达 fallback epilogue）
+        lastEmittedWasRet_ = (line == "jalr x0, 0(x1)");
         // 任何 emit 调用都会使跨寄存器 sw→lw peephole 的"紧邻"条件失效
         // (emitStackStore 在 emit 后会重新设置 lastStoreValid_ = true)
         lastStoreValid_ = false;
@@ -572,11 +634,10 @@ namespace MyCompiler
             return;
         }
         // 控制流指令也使跟踪失效（避免跨基本块误删）
-        if (line.rfind("j ", 0) == 0 || line.rfind("bnez", 0) == 0 ||
-            line.rfind("beqz", 0) == 0 || line.rfind("beq", 0) == 0 ||
-            line.rfind("bne", 0) == 0 || line.rfind("blt", 0) == 0 ||
-            line.rfind("bge", 0) == 0 || line.rfind("ble", 0) == 0 ||
-            line.rfind("bgt", 0) == 0 || line.rfind("ret", 0) == 0 ||
+        if (line.rfind("jal ", 0) == 0 || line.rfind("jalr", 0) == 0 ||
+            line.rfind("bne ", 0) == 0 || line.rfind("beq ", 0) == 0 ||
+            line.rfind("blt ", 0) == 0 || line.rfind("bge ", 0) == 0 ||
+            line.rfind("ble ", 0) == 0 || line.rfind("bgt ", 0) == 0 ||
             line.rfind("call", 0) == 0 || line.rfind("ecall", 0) == 0)
         {
             lastLineValid_ = false;
@@ -589,15 +650,16 @@ namespace MyCompiler
 
     // 带大偏移的栈加载：offset 超 12 位范围时用 li+add 两步法
     // Peephole 优化：
-    //   1. 若上一条刚发射的是 "sw reg, offset(sp)" 且寄存器相同 → 跳过 load
-    //   2. 若上一条刚发射的是 "sw regX, offset(sp)" 且寄存器不同 → 替换为 "mv reg, regX"
+    //   1. 若上一条刚发射的是 "sw reg, offset(x2)" 且寄存器相同 → 跳过 load
+    //   2. 若上一条刚发射的是 "sw regX, offset(x2)" 且寄存器不同 → 替换为 "mv reg, regX"
     void CodeGen::emitStackLoad(const std::string &reg, int offset)
     {
         if (offset >= -2048 && offset <= 2047)
         {
-            std::string loadLine = "lw " + reg + ", " + std::to_string(offset) + "(sp)";
+            std::string loadLine = "lw " + reg + ", " + std::to_string(offset) + "(x2)";
             // 优先检查增强peephole（跨寄存器 sw→lw 消除）
-            if (lastStoreValid_ && lastStoreOffset_ == offset)
+            // 注意：x1 (ra) 是特殊寄存器（返回地址），不能被 peephole 删除！
+            if (reg != "x1" && lastStoreValid_ && lastStoreOffset_ == offset)
             {
                 if (lastStoreReg_ == reg)
                 {
@@ -609,14 +671,15 @@ namespace MyCompiler
                 }
                 else
                 {
-                    // 跨寄存器：用 mv 替代 lw（更高效）
+                    // 跨寄存器：用 addi rd, rs1, 0 替代 lw（更高效）
                     lastStoreValid_ = false;
-                    emit("mv " + reg + ", " + lastStoreReg_);
+                    emit("addi " + reg + ", " + lastStoreReg_ + ", 0");
                     return;
                 }
             }
             // 兼容旧peephole（检查 lastEmittedLine_ 是否完全匹配）
-            if (lastLineValid_ && lastEmittedLine_ == "sw " + reg + ", " + std::to_string(offset) + "(sp)")
+            // 同样保护 x1 (ra) 寄存器
+            if (reg != "x1" && lastLineValid_ && lastEmittedLine_ == "sw " + reg + ", " + std::to_string(offset) + "(x2)")
             {
                 lastLineValid_ = false;
                 lastEmittedLine_.clear();
@@ -626,8 +689,8 @@ namespace MyCompiler
         }
         else
         {
-            emit("li t2, " + std::to_string(offset));
-            emit("add t2, sp, t2");
+            emitLi("t2", offset);
+            emit("add t2, x2, t2");
             emit("lw " + reg + ", 0(t2)");
         }
     }
@@ -636,7 +699,7 @@ namespace MyCompiler
     {
         if (offset >= -2048 && offset <= 2047)
         {
-            emit("sw " + reg + ", " + std::to_string(offset) + "(sp)");
+            emit("sw " + reg + ", " + std::to_string(offset) + "(x2)");
             // 记录此次 store 供 emitStackLoad 做跨寄存器 peephole
             // 注意：emit() 已将 lastStoreValid_ 置 false，此处恢复为 true
             lastStoreReg_ = reg;
@@ -645,8 +708,8 @@ namespace MyCompiler
         }
         else
         {
-            emit("li t2, " + std::to_string(offset));
-            emit("add t2, sp, t2");
+            emitLi("t2", offset);
+            emit("add t2, x2, t2");
             emit("sw " + reg + ", 0(t2)");
             lastStoreValid_ = false;
         }
@@ -654,31 +717,88 @@ namespace MyCompiler
 
     std::string CodeGen::loadOperand(const TACOperand &op, const std::string &reg)
     {
+        // 当向寄存器加载新值时，使该寄存器中旧变量的跟踪失效
+        for (auto it = varInReg_.begin(); it != varInReg_.end(); ++it)
+        {
+            if (it->second == reg && it->first != op.name)
+            {
+                varInReg_.erase(it->first);
+                break;
+            }
+        }
+
         switch (op.type)
         {
         case TACOpType::CONST_INT:
-            emit("li " + reg + ", " + std::to_string(op.intValue));
+            emitLi(reg, op.intValue);
             break;
         case TACOpType::VAR:
             if (isGlobal(op.name))
             {
-                emit("la " + reg + ", _g_" + op.name);
+                // 使用 lui + addi 加载全局变量地址（比 la 更兼容）
+                emit("lui " + reg + ", %hi(_g_" + op.name + ")");
+                emit("addi " + reg + ", " + reg + ", %lo(_g_" + op.name + ")");
                 emit("lw " + reg + ", 0(" + reg + ")");
             }
             else
             {
-                int offset = allocVarOffset(op.name);
-                emitStackLoad(reg, offset);
+                // 检查变量是否已在寄存器中
+                auto it = varInReg_.find(op.name);
+                if (it != varInReg_.end() && it->second != reg)
+                {
+                    // 变量在另一个寄存器中，用 addi 替代 lw
+                    emit("addi " + reg + ", " + it->second + ", 0");
+                    break;
+                }
+                else if (it != varInReg_.end() && it->second == reg)
+                {
+                    // 变量已在目标寄存器中，跳过 load
+                    break;
+                }
+                // 变量不在寄存器中：如果有栈帧，从栈加载
+                if (currentFrameSize_ > 0)
+                {
+                    int offset = allocVarOffset(op.name);
+                    emitStackLoad(reg, offset);
+                    // 记录变量在寄存器中
+                    varInReg_[op.name] = reg;
+                }
+                else
+                {
+                    // 无栈帧且变量不在寄存器中，安全回退
+                    emitLi(reg, 0);
+                }
             }
             break;
         case TACOpType::TEMP:
         {
-            int offset = allocVarOffset(op.name);
-            emitStackLoad(reg, offset);
+            // 检查临时变量是否已在寄存器中
+            auto it = varInReg_.find(op.name);
+            if (it != varInReg_.end() && it->second != reg)
+            {
+                emit("addi " + reg + ", " + it->second + ", 0");
+                break;
+            }
+            else if (it != varInReg_.end() && it->second == reg)
+            {
+                break;
+            }
+            // 临时变量不在寄存器中：如果有栈帧，从栈加载
+            if (currentFrameSize_ > 0)
+            {
+                int offset = allocVarOffset(op.name);
+                emitStackLoad(reg, offset);
+                varInReg_[op.name] = reg;
+            }
+            else
+            {
+                // 无栈帧且临时变量不在寄存器中，安全回退
+                emitLi(reg, 0);
+            }
             break;
         }
         case TACOpType::NONE:
-            emit("li " + reg + ", 0");
+            emitLi(reg, 0);
             break;
         }
         return reg;
@@ -686,24 +806,68 @@ namespace MyCompiler
 
     void CodeGen::storeOperand(const TACOperand &op, const std::string &reg)
     {
+        // 当向寄存器存储新值时，使该寄存器中旧变量的跟踪失效
+        for (auto it = varInReg_.begin(); it != varInReg_.end(); ++it)
+        {
+            if (it->second == reg && it->first != op.name)
+            {
+                varInReg_.erase(it->first);
+                break;
+            }
+        }
+
+        // 检查变量是否在 PARAM 队列中（即将作为函数参数使用）
+        // 如果是，跳过栈存储，直接更新寄存器跟踪
+        bool isParam = false;
+        if (op.type == TACOpType::VAR || op.type == TACOpType::TEMP)
+        {
+            for (auto &p : paramQueue_)
+            {
+                if (p == op.name)
+                {
+                    isParam = true;
+                    break;
+                }
+            }
+        }
+
         switch (op.type)
         {
         case TACOpType::VAR:
             if (isGlobal(op.name))
             {
-                emit("la t2, _g_" + op.name);
+                // 使用 lui + addi 加载全局变量地址
+                emit("lui t2, %hi(_g_" + op.name + ")");
+                emit("addi t2, t2, %lo(_g_" + op.name + ")");
                 emit("sw " + reg + ", 0(t2)");
+            }
+            else if (currentFrameSize_ == 0 || isParam)
+            {
+                // 无栈帧 或 变量将作为函数参数：不存储到栈，仅更新寄存器跟踪
+                varInReg_[op.name] = reg;
             }
             else
             {
                 int offset = allocVarOffset(op.name);
                 emitStackStore(reg, offset);
+                // 更新寄存器跟踪：变量现在在 reg 中
+                varInReg_[op.name] = reg;
             }
             break;
         case TACOpType::TEMP:
         {
-            int offset = allocVarOffset(op.name);
-            emitStackStore(reg, offset);
+            if (currentFrameSize_ == 0 || isParam)
+            {
+                // 无栈帧 或 变量将作为函数参数：不存储到栈，仅更新寄存器跟踪
+                varInReg_[op.name] = reg;
+            }
+            else
+            {
+                int offset = allocVarOffset(op.name);
+                emitStackStore(reg, offset);
+                // 更新寄存器跟踪：临时变量现在在 reg 中
+                varInReg_[op.name] = reg;
+            }
             break;
         }
         case TACOpType::CONST_INT:
@@ -724,20 +888,198 @@ namespace MyCompiler
         return offset;
     }
 
+    void CodeGen::emitLi(const std::string &reg, int32_t value)
+    {
+        // RISC-V: addi rd, x0, imm 支持 -2048 ~ 2047
+        // 超过此范围用 lui + addi 实现
+        if (value >= -2048 && value <= 2047)
+        {
+            emit("addi " + reg + ", x0, " + std::to_string(value));
+        }
+        else
+        {
+            // lui 加载高 20 位，addi 调整低 12 位
+            int32_t upper = value >> 12;
+            int32_t lower = value & 0xFFF;
+            // 如果低 12 位的最高位为 1，需要进位
+            if (lower >= 0x800)
+            {
+                upper += 1;
+                lower = lower - 0x1000;
+            }
+            emit("lui " + reg + ", " + std::to_string(upper));
+            if (lower != 0)
+            {
+                emit("addi " + reg + ", " + reg + ", " + std::to_string(lower));
+            }
+        }
+    }
+
+    void CodeGen::emitSeqz(const std::string &rd, const std::string &rs1)
+    {
+        // seqz rd, rs1 → sltiu rd, rs1, 1
+        emit("sltiu " + rd + ", " + rs1 + ", 1");
+    }
+
+    void CodeGen::emitSnez(const std::string &rd, const std::string &rs1)
+    {
+        // snez rd, rs1 → sltu rd, x0, rs1
+        emit("sltu " + rd + ", x0, " + rs1);
+    }
+
+    void CodeGen::emitNeg(const std::string &rd, const std::string &rs1)
+    {
+        // neg rd, rs1 → sub rd, x0, rs1
+        emit("sub " + rd + ", x0, " + rs1);
+    }
+
+    // 软件乘法：t0 = t0 * t1（使用移位加法算法）
+    // 临时寄存器: t2 (结果/符号), t3 (循环计数), t4 (符号), t5 (临时)
+    void CodeGen::emitMulSW()
+    {
+        static int mulLabelCounter = 0;
+        int id = mulLabelCounter++;
+        std::string loopLabel = "_MUL_L" + std::to_string(id);
+        std::string endLabel = "_MUL_E" + std::to_string(id);
+
+        // 确定符号
+        emit("addi t4, x0, 0");
+        emit("bge t0, x0, " + loopLabel + "_NS");
+        emit("addi t4, x0, 1");
+        emit("sub t0, x0, t0");
+        emit(loopLabel + "_NS:");
+        emit("bge t1, x0, " + loopLabel + "_NS2");
+        emit("xori t4, t4, 1");
+        emit("sub t1, x0, t1");
+        emit(loopLabel + "_NS2:");
+
+        // 移位加法
+        emit("addi t2, x0, 0");
+        emit("addi t3, x0, 32");
+        emit(loopLabel + ":");
+        emit("beq t1, x0, " + endLabel);
+        emit("andi t5, t1, 1");
+        emit("beq t5, x0, " + loopLabel + "_SKIP");
+        emit("add t2, t2, t0");
+        emit(loopLabel + "_SKIP:");
+        emit("slli t0, t0, 1");
+        emit("srli t1, t1, 1");
+        emit("addi t3, t3, -1");
+        emit("bne t3, x0, " + loopLabel);
+        emit(endLabel + ":");
+
+        // 应用符号
+        emit("beq t4, x0, " + endLabel + "_DN");
+        emit("sub t2, x0, t2");
+        emit(endLabel + "_DN:");
+        emit("addi t0, t2, 0");
+    }
+
+    // 软件除法：t0 = t0 / t1（使用恢复除法算法）
+    // 临时寄存器: t2 (余数), t3 (循环计数), t4 (符号), t5 (临时)
+    void CodeGen::emitDivSW()
+    {
+        static int divLabelCounter = 0;
+        int id = divLabelCounter++;
+        std::string loopLabel = "_DIV_L" + std::to_string(id);
+        std::string endLabel = "_DIV_E" + std::to_string(id);
+
+        // 确定商的符号
+        emit("addi t4, x0, 0");
+        emit("bge t0, x0, " + loopLabel + "_NS");
+        emit("addi t4, x0, 1");
+        emit("sub t0, x0, t0");
+        emit(loopLabel + "_NS:");
+        emit("bge t1, x0, " + loopLabel + "_NS2");
+        emit("xori t4, t4, 1");
+        emit("sub t1, x0, t1");
+        emit(loopLabel + "_NS2:");
+
+        // 恢复除法
+        emit("addi t2, x0, 0");
+        emit("addi t3, x0, 32");
+        emit(loopLabel + ":");
+        emit("slli t2, t2, 1");
+        emit("srli t5, t0, 31");
+        emit("beq t5, x0, " + loopLabel + "_CLR");
+        emit("addi t2, t2, 1");
+        emit(loopLabel + "_CLR:");
+        emit("slli t0, t0, 1");
+        emit("blt t2, t1, " + loopLabel + "_NO");
+        emit("sub t2, t2, t1");
+        emit("addi t0, t0, 1");
+        emit(loopLabel + "_NO:");
+        emit("addi t3, t3, -1");
+        emit("bne t3, x0, " + loopLabel);
+        emit(endLabel + ":");
+
+        // 应用符号
+        emit("beq t4, x0, " + endLabel + "_DN");
+        emit("sub t0, x0, t0");
+        emit(endLabel + "_DN:");
+    }
+
+    // 软件取模：t0 = t0 % t1（使用恢复除法算法，保留余数）
+    void CodeGen::emitRemSW()
+    {
+        static int remLabelCounter = 0;
+        int id = remLabelCounter++;
+        std::string loopLabel = "_REM_L" + std::to_string(id);
+        std::string endLabel = "_REM_E" + std::to_string(id);
+
+        // 确定余数的符号（与被除数相同）
+        emit("addi t4, x0, 0");
+        emit("bge t0, x0, " + loopLabel + "_NS");
+        emit("addi t4, x0, 1");
+        emit("sub t0, x0, t0");
+        emit(loopLabel + "_NS:");
+        emit("bge t1, x0, " + loopLabel + "_NS2");
+        emit("sub t1, x0, t1");
+        emit(loopLabel + "_NS2:");
+
+        // 恢复除法（只保留余数）
+        emit("addi t2, x0, 0");
+        emit("addi t3, x0, 32");
+        emit(loopLabel + ":");
+        emit("slli t2, t2, 1");
+        emit("srli t5, t0, 31");
+        emit("beq t5, x0, " + loopLabel + "_CLR");
+        emit("addi t2, t2, 1");
+        emit(loopLabel + "_CLR:");
+        emit("slli t0, t0, 1");
+        emit("blt t2, t1, " + loopLabel + "_NO");
+        emit("sub t2, t2, t1");
+        emit(loopLabel + "_NO:");
+        emit("addi t3, t3, -1");
+        emit("bne t3, x0, " + loopLabel);
+        emit(endLabel + ":");
+
+        // 应用符号
+        emit("beq t4, x0, " + endLabel + "_DN");
+        emit("sub t2, x0, t2");
+        emit(endLabel + "_DN:");
+        emit("addi t0, t2, 0");
+    }
+
     void CodeGen::emitPrologue()
     {
         emit(".text");
+        emit(".align 2");
         emit(".globl _start");
         emit("_start:");
-        emit("addi sp, sp, -256");
-        emit("sw ra, 252(sp)");
+        emit("addi x2, x2, -256");
+        emit("sw x1, 252(x2)");
     }
 
     void CodeGen::emitFuncPrologue(const std::string &funcName, int frameSize)
     {
-        if (frameSize < 256)
-            frameSize = 256;
+        // 判断是否为叶函数
+        bool isLeaf = funcIsLeaf_.count(funcName) && funcIsLeaf_[funcName];
+
+        if (frameSize < 16)
+            frameSize = 16;
         currentFrameSize_ = frameSize;
+        currentFuncIsLeaf_ = isLeaf;
 
         emit("");
         if (funcName == "main")
@@ -749,10 +1091,20 @@ namespace MyCompiler
         {
             emit("func_" + funcName + ":");
         }
-        // addi 立即数范围 [-2048,2047]，用两步法避免越界
-        emit("li t2, " + std::to_string(frameSize));
-        emit("sub sp, sp, t2");
-        emit("sw ra, " + std::to_string(frameSize - 4) + "(sp)");
+
+        // 始终分配栈帧，保证汇编器/仿真器的栈约定一致
+        if (frameSize <= 2047)
+        {
+            emit("addi x2, x2, -" + std::to_string(frameSize));
+        }
+        else
+        {
+            emitLi("t2", frameSize);
+            emit("sub x2, x2, t2");
+        }
+
+        // 始终保存 ra，保证返回地址正确性
+        emit("sw x1, " + std::to_string(frameSize - 4) + "(x2)");
 
         varOffsets_.clear();
     }
@@ -760,18 +1112,35 @@ namespace MyCompiler
     void CodeGen::emitFuncEpilogue()
     {
         int frameSize = currentFrameSize_;
-        if (frameSize <= 0)
-            frameSize = 256;
-        emit("lw ra, " + std::to_string(frameSize - 4) + "(sp)");
-        // 用 li + add 代替 addi，支持大立即数
-        emit("li t2, " + std::to_string(frameSize));
-        emit("add sp, sp, t2");
-        emit("ret");
+        if (frameSize < 0)
+            frameSize = 0;
+
+        bool isLeaf = currentFuncIsLeaf_;
+
+        // 如果帧大小为 0，直接返回
+        if (frameSize == 0)
+        {
+            emit("jalr x0, 0(x1)");
+            return;
+        }
+
+        // 恢复 ra 并返回
+        emit("lw x1, " + std::to_string(frameSize - 4) + "(x2)");
+        if (frameSize <= 2047)
+        {
+            emit("addi x2, x2, " + std::to_string(frameSize));
+        }
+        else
+        {
+            emitLi("t2", frameSize);
+            emit("add x2, x2, t2");
+        }
+        emit("jalr x0, 0(x1)");
     }
 
     void CodeGen::emitExit()
     {
-        emit("li a7, 93");
+        emitLi("a7", 93);
         emit("ecall");
     }
 

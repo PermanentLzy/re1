@@ -1,0 +1,7 @@
+// p03: 复制传播
+int main() {
+    int a = 42;
+    int b = a;
+    int c = b;
+    return c;
+}

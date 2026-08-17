@@ -1,0 +1,6 @@
+// p02: 死代码删除
+int main() {
+    int x = 10;
+    x = 20;
+    return 5;
+}

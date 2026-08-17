@@ -61,8 +61,18 @@ namespace MyCompiler
         int lastStoreOffset_ = 0;
         bool lastStoreValid_ = false;
 
+        /// 寄存器跟踪：变量名 → 当前所在寄存器
+        /// 用于避免冗余 load（如果变量已在寄存器中，直接使用）
+        std::unordered_map<std::string, std::string> varInReg_;
+
         /// 跟踪最后一条发射的指令是否为 ret（用于跳过函数末尾的不可达 fallback epilogue）
         bool lastEmittedWasRet_ = false;
+
+        /// 当前函数是否为叶函数（不调用其他函数）
+        bool currentFuncIsLeaf_ = false;
+
+        /// 各函数是否为叶函数的映射
+        std::unordered_map<std::string, bool> funcIsLeaf_;
 
         /// 全局变量名集合（程序级 ASSIGN 的 result）
         std::unordered_set<std::string> globalVars_;
@@ -89,6 +99,27 @@ namespace MyCompiler
 
         /// 判断是否为全局变量
         bool isGlobal(const std::string &name) const;
+
+        /// 输出 li 指令（自动处理大立即数，用 lui+addi 替代）
+        void emitLi(const std::string &reg, int32_t value);
+
+        /// seqz 伪指令 → sltiu rd, rs1, 1
+        void emitSeqz(const std::string &rd, const std::string &rs1);
+
+        /// snez 伪指令 → sltu rd, x0, rs1
+        void emitSnez(const std::string &rd, const std::string &rs1);
+
+        /// neg 伪指令 → sub rd, zero, rs1
+        void emitNeg(const std::string &rd, const std::string &rs1);
+
+        /// 软件乘法：t0 = t0 * t1
+        void emitMulSW();
+
+        /// 软件除法：t0 = t0 / t1
+        void emitDivSW();
+
+        /// 软件取模：t0 = t0 % t1
+        void emitRemSW();
 
         /// 输出汇编头部 (.text, _start 入口等)
         void emitPrologue();

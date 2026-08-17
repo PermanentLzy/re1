@@ -1,0 +1,6 @@
+// p04: 公共子表达式消除
+int main() {
+    int x = 3 + 4;
+    int y = 3 + 4;
+    return x + y;
+}
