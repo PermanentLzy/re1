@@ -33,12 +33,12 @@ namespace MyCompiler
 
     void CodeGenOptimized::emitStackLoad(const std::string &reg, int offset)
     {
-        emit("lw " + reg + ", " + std::to_string(offset) + "(x2)");
+        emit("lw " + reg + ", " + std::to_string(offset) + "(sp)");
     }
 
     void CodeGenOptimized::emitStackStore(const std::string &reg, int offset)
     {
-        emit("sw " + reg + ", " + std::to_string(offset) + "(x2)");
+        emit("sw " + reg + ", " + std::to_string(offset) + "(sp)");
     }
 
     // ================================================================
@@ -275,36 +275,31 @@ namespace MyCompiler
             emit("or t0, t0, t1");
     }
 
-    void CodeGenOptimized::emitPrologue()
-    {
-        emit(".text");
-        emit(".align 2");
-        emit(".globl _start");
-        emit("_start:");
-        emit("addi x2, x2, -256");
-    }
+    void CodeGenOptimized::emitPrologue() {
+    emit(".text");
+    emit(".align 2");
+    emit(".globl _start");
+    emit("_start:");
+    emit("addi sp, sp, -256");
+}
 
-    void CodeGenOptimized::emitEpilogue()
-    {
-        emit("li a7, 93");
-        emit("li a0, 0");
-        emit("ecall");
-    }
+void CodeGenOptimized::emitEpilogue() {
+    emit("li a7, 93");
+    emit("li a0, 0");
+    emit("ecall");
+}
 
-    void CodeGenOptimized::emitFuncPrologue(const std::string &funcName, int frameSize)
-    {
-        std::string label = labelMap_[funcName];
-        emit(label + ":");
-        if (frameSize > 0)
-        {
-            emit("addi x2, x2, -" + std::to_string(frameSize));
-        }
+void CodeGenOptimized::emitFuncPrologue(const std::string& funcName, int frameSize) {
+    std::string label = labelMap_[funcName];
+    emit(label + ":");
+    if (frameSize > 0) {
+        emit("addi sp, sp, -" + std::to_string(frameSize));
     }
+}
 
-    void CodeGenOptimized::emitFuncEpilogue()
-    {
-        emit("jalr x0, 0(x1)");
-    }
+void CodeGenOptimized::emitFuncEpilogue() {
+    emit("ret");
+}
 
     void CodeGenOptimized::generate(const TACProgram &program)
     {

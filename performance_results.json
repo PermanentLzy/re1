@@ -3,458 +3,458 @@
     "arith.src": {
       "passed": true,
       "original": {
-        "asm_lines": 62,
-        "compile_time": 0.021523714065551758
+        "asm_lines": 64,
+        "compile_time": 0.030279874801635742
       },
       "optimized": {
-        "asm_lines": 12,
-        "compile_time": 0.02499675750732422
+        "asm_lines": 14,
+        "compile_time": 0.022922992706298828
       },
       "improvement": {
-        "code_reduction_percent": 80.64516129032258,
-        "speedup_percent": -16.135892863076975
+        "code_reduction_percent": 78.125,
+        "speedup_percent": 24.296276465910253
       }
     },
     "control.src": {
       "passed": true,
       "original": {
-        "asm_lines": 48,
-        "compile_time": 0.01814436912536621
+        "asm_lines": 50,
+        "compile_time": 0.023229122161865234
       },
       "optimized": {
-        "asm_lines": 35,
-        "compile_time": 0.020301103591918945
+        "asm_lines": 37,
+        "compile_time": 0.02373337745666504
       },
       "improvement": {
-        "code_reduction_percent": 27.083333333333332,
-        "speedup_percent": -11.886522213316164
+        "code_reduction_percent": 26.0,
+        "speedup_percent": -2.170789284614595
       }
     },
     "test01_arith.src": {
       "passed": true,
       "original": {
-        "asm_lines": 48,
-        "compile_time": 0.02031540870666504
+        "asm_lines": 50,
+        "compile_time": 0.03224325180053711
       },
       "optimized": {
-        "asm_lines": 12,
-        "compile_time": 0.024808406829833984
+        "asm_lines": 14,
+        "compile_time": 0.027988910675048828
       },
       "improvement": {
-        "code_reduction_percent": 75.0,
-        "speedup_percent": -22.116208381743714
+        "code_reduction_percent": 72.0,
+        "speedup_percent": 13.194516334166432
       }
     },
     "test02_precedence.src": {
       "passed": true,
       "original": {
-        "asm_lines": 56,
-        "compile_time": 0.023483991622924805
+        "asm_lines": 58,
+        "compile_time": 0.02170538902282715
       },
       "optimized": {
-        "asm_lines": 12,
-        "compile_time": 0.02277398109436035
+        "asm_lines": 14,
+        "compile_time": 0.02762889862060547
       },
       "improvement": {
-        "code_reduction_percent": 78.57142857142857,
-        "speedup_percent": 3.023380948029929
+        "code_reduction_percent": 75.86206896551724,
+        "speedup_percent": -27.290501872823736
       }
     },
     "test03_relational.src": {
       "passed": true,
       "original": {
-        "asm_lines": 112,
-        "compile_time": 0.021218299865722656
+        "asm_lines": 114,
+        "compile_time": 0.023302555084228516
       },
       "optimized": {
-        "asm_lines": 47,
-        "compile_time": 0.02812337875366211
+        "asm_lines": 49,
+        "compile_time": 0.026670217514038086
       },
       "improvement": {
-        "code_reduction_percent": 58.03571428571429,
-        "speedup_percent": -32.54303564205133
+        "code_reduction_percent": 57.01754385964912,
+        "speedup_percent": -14.451902023777855
       }
     },
     "test04_logical.src": {
       "passed": true,
       "original": {
-        "asm_lines": 152,
-        "compile_time": 0.021928071975708008
+        "asm_lines": 156,
+        "compile_time": 0.027698516845703125
       },
       "optimized": {
-        "asm_lines": 96,
-        "compile_time": 0.022536039352416992
+        "asm_lines": 100,
+        "compile_time": 0.022066831588745117
       },
       "improvement": {
-        "code_reduction_percent": 36.84210526315789,
-        "speedup_percent": -2.7725528144129257
+        "code_reduction_percent": 35.8974358974359,
+        "speedup_percent": 20.332082357801955
       }
     },
     "test05_unary.src": {
       "passed": true,
       "original": {
-        "asm_lines": 48,
-        "compile_time": 0.022088050842285156
+        "asm_lines": 50,
+        "compile_time": 0.022388458251953125
       },
       "optimized": {
-        "asm_lines": 12,
-        "compile_time": 0.2827303409576416
+        "asm_lines": 14,
+        "compile_time": 0.020710468292236328
       },
       "improvement": {
-        "code_reduction_percent": 75.0,
-        "speedup_percent": -1180.0148957298907
+        "code_reduction_percent": 72.0,
+        "speedup_percent": 7.49488839666042
       }
     },
     "test06_if.src": {
       "passed": true,
       "original": {
-        "asm_lines": 56,
-        "compile_time": 0.022237777709960938
+        "asm_lines": 58,
+        "compile_time": 0.02355027198791504
       },
       "optimized": {
-        "asm_lines": 31,
-        "compile_time": 0.01719498634338379
+        "asm_lines": 33,
+        "compile_time": 0.024174928665161133
       },
       "improvement": {
-        "code_reduction_percent": 44.642857142857146,
-        "speedup_percent": 22.67668753752466
+        "code_reduction_percent": 43.103448275862064,
+        "speedup_percent": -2.6524393330431173
       }
     },
     "test07_while.src": {
       "passed": true,
       "original": {
-        "asm_lines": 38,
-        "compile_time": 0.017746448516845703
+        "asm_lines": 40,
+        "compile_time": 0.026192903518676758
       },
       "optimized": {
-        "asm_lines": 30,
-        "compile_time": 0.027034759521484375
+        "asm_lines": 32,
+        "compile_time": 0.02919316291809082
       },
       "improvement": {
-        "code_reduction_percent": 21.052631578947366,
-        "speedup_percent": -52.338984872504504
+        "code_reduction_percent": 20.0,
+        "speedup_percent": -11.454474290239485
       }
     },
     "test08_break_continue.src": {
       "passed": true,
       "original": {
-        "asm_lines": 61,
-        "compile_time": 0.028252363204956055
+        "asm_lines": 63,
+        "compile_time": 0.027050256729125977
       },
       "optimized": {
-        "asm_lines": 48,
-        "compile_time": 0.034369707107543945
+        "asm_lines": 50,
+        "compile_time": 0.017845630645751953
       },
       "improvement": {
-        "code_reduction_percent": 21.311475409836063,
-        "speedup_percent": -21.652503396653135
+        "code_reduction_percent": 20.634920634920633,
+        "speedup_percent": 34.027869589359845
       }
     },
     "test09_nested_while.src": {
       "passed": true,
       "original": {
-        "asm_lines": 59,
-        "compile_time": 0.022283077239990234
+        "asm_lines": 61,
+        "compile_time": 0.021394014358520508
       },
       "optimized": {
-        "asm_lines": 45,
-        "compile_time": 0.02453756332397461
+        "asm_lines": 47,
+        "compile_time": 0.024629831314086914
       },
       "improvement": {
-        "code_reduction_percent": 23.728813559322035,
-        "speedup_percent": -10.117480901328882
+        "code_reduction_percent": 22.950819672131146,
+        "speedup_percent": -15.124870448998696
       }
     },
     "test10_assign.src": {
       "passed": true,
       "original": {
-        "asm_lines": 42,
-        "compile_time": 0.02817392349243164
+        "asm_lines": 44,
+        "compile_time": 0.02635669708251953
       },
       "optimized": {
-        "asm_lines": 30,
-        "compile_time": 0.02867913246154785
+        "asm_lines": 32,
+        "compile_time": 0.01942276954650879
       },
       "improvement": {
-        "code_reduction_percent": 28.57142857142857,
-        "speedup_percent": -1.7931793179317934
+        "code_reduction_percent": 27.27272727272727,
+        "speedup_percent": 26.308029091435394
       }
     },
     "test11_func_call.src": {
       "passed": true,
       "original": {
-        "asm_lines": 52,
-        "compile_time": 0.01984262466430664
+        "asm_lines": 58,
+        "compile_time": 0.026556968688964844
       },
       "optimized": {
-        "asm_lines": 52,
-        "compile_time": 0.023940086364746094
+        "asm_lines": 58,
+        "compile_time": 0.020538806915283203
       },
       "improvement": {
         "code_reduction_percent": 0.0,
-        "speedup_percent": -20.64979693845673
+        "speedup_percent": 22.661327970697023
       }
     },
     "test12_multi_param.src": {
       "passed": true,
       "original": {
-        "asm_lines": 44,
-        "compile_time": 0.019115686416625977
+        "asm_lines": 48,
+        "compile_time": 0.02219414710998535
       },
       "optimized": {
-        "asm_lines": 44,
-        "compile_time": 0.027234315872192383
+        "asm_lines": 48,
+        "compile_time": 0.023227453231811523
       },
       "improvement": {
         "code_reduction_percent": 0.0,
-        "speedup_percent": -42.47103283984185
+        "speedup_percent": -4.655759541943731
       }
     },
     "test13_recursive.src": {
       "passed": true,
       "original": {
-        "asm_lines": 55,
-        "compile_time": 0.026931285858154297
+        "asm_lines": 59,
+        "compile_time": 0.026227712631225586
       },
       "optimized": {
-        "asm_lines": 47,
-        "compile_time": 0.02382493019104004
+        "asm_lines": 51,
+        "compile_time": 0.018693208694458008
       },
       "improvement": {
-        "code_reduction_percent": 14.545454545454545,
-        "speedup_percent": 11.534375608633297
+        "code_reduction_percent": 13.559322033898304,
+        "speedup_percent": 28.72726281054842
       }
     },
     "test14_void_func.src": {
       "passed": true,
       "original": {
-        "asm_lines": 42,
-        "compile_time": 0.021047592163085938
+        "asm_lines": 46,
+        "compile_time": 0.020217180252075195
       },
       "optimized": {
-        "asm_lines": 38,
-        "compile_time": 0.022878408432006836
+        "asm_lines": 42,
+        "compile_time": 0.025129079818725586
       },
       "improvement": {
-        "code_reduction_percent": 9.523809523809524,
-        "speedup_percent": -8.698459447213413
+        "code_reduction_percent": 8.695652173913043,
+        "speedup_percent": -24.295670837411702
       }
     },
     "test15_scope.src": {
       "passed": true,
       "original": {
-        "asm_lines": 50,
-        "compile_time": 0.022313833236694336
+        "asm_lines": 54,
+        "compile_time": 0.026240825653076172
       },
       "optimized": {
-        "asm_lines": 33,
-        "compile_time": 0.021924972534179688
+        "asm_lines": 37,
+        "compile_time": 0.019418001174926758
       },
       "improvement": {
-        "code_reduction_percent": 34.0,
-        "speedup_percent": 1.742688933764999
+        "code_reduction_percent": 31.48148148148148,
+        "speedup_percent": 26.000799549344915
       }
     },
     "test16_global_var.src": {
       "passed": true,
       "original": {
-        "asm_lines": 54,
-        "compile_time": 0.019332408905029297
+        "asm_lines": 60,
+        "compile_time": 0.027465105056762695
       },
       "optimized": {
-        "asm_lines": 52,
-        "compile_time": 0.029059648513793945
+        "asm_lines": 58,
+        "compile_time": 0.04030203819274902
       },
       "improvement": {
-        "code_reduction_percent": 3.7037037037037033,
-        "speedup_percent": -50.31571418000641
+        "code_reduction_percent": 3.3333333333333335,
+        "speedup_percent": -46.73906438535726
       }
     },
     "test17_const.src": {
       "passed": true,
       "original": {
-        "asm_lines": 30,
-        "compile_time": 0.029529571533203125
+        "asm_lines": 32,
+        "compile_time": 0.02743673324584961
       },
       "optimized": {
-        "asm_lines": 12,
-        "compile_time": 0.02151179313659668
+        "asm_lines": 14,
+        "compile_time": 0.02669668197631836
       },
       "improvement": {
-        "code_reduction_percent": 60.0,
-        "speedup_percent": 27.151692287818115
+        "code_reduction_percent": 56.25,
+        "speedup_percent": 2.6973009610872625
       }
     },
     "test18_global_const.src": {
       "passed": true,
       "original": {
-        "asm_lines": 49,
-        "compile_time": 0.030566692352294922
+        "asm_lines": 51,
+        "compile_time": 0.03843212127685547
       },
       "optimized": {
-        "asm_lines": 29,
-        "compile_time": 0.026865005493164062
+        "asm_lines": 31,
+        "compile_time": 0.03438234329223633
       },
       "improvement": {
-        "code_reduction_percent": 40.816326530612244,
-        "speedup_percent": 12.110197650655975
+        "code_reduction_percent": 39.21568627450981,
+        "speedup_percent": 10.537482319660537
       }
     },
     "test19_empty_return.src": {
       "passed": true,
       "original": {
-        "asm_lines": 21,
-        "compile_time": 0.02537679672241211
+        "asm_lines": 23,
+        "compile_time": 0.03699827194213867
       },
       "optimized": {
-        "asm_lines": 14,
-        "compile_time": 0.026488542556762695
+        "asm_lines": 16,
+        "compile_time": 0.018116235733032227
       },
       "improvement": {
-        "code_reduction_percent": 33.33333333333333,
-        "speedup_percent": -4.380954170503016
+        "code_reduction_percent": 30.434782608695656,
+        "speedup_percent": 51.03491384310036
       }
     },
     "test20_complex_expr.src": {
       "passed": true,
       "original": {
-        "asm_lines": 65,
-        "compile_time": 0.018633604049682617
+        "asm_lines": 69,
+        "compile_time": 0.03130674362182617
       },
       "optimized": {
-        "asm_lines": 41,
-        "compile_time": 0.02312922477722168
+        "asm_lines": 45,
+        "compile_time": 0.02087259292602539
       },
       "improvement": {
-        "code_reduction_percent": 36.92307692307693,
-        "speedup_percent": -24.126415456464716
+        "code_reduction_percent": 34.78260869565217,
+        "speedup_percent": 33.32876399360292
       }
     },
     "test21_comprehensive.src": {
       "passed": true,
       "original": {
-        "asm_lines": 147,
-        "compile_time": 0.02163410186767578
+        "asm_lines": 155,
+        "compile_time": 0.022176504135131836
       },
       "optimized": {
-        "asm_lines": 120,
-        "compile_time": 0.0248105525970459
+        "asm_lines": 128,
+        "compile_time": 0.02200937271118164
       },
       "improvement": {
-        "code_reduction_percent": 18.367346938775512,
-        "speedup_percent": -14.682609653956359
+        "code_reduction_percent": 17.419354838709676,
+        "speedup_percent": 0.7536418857173574
       }
     },
     "test22_mod_div.src": {
       "passed": true,
       "original": {
-        "asm_lines": 71,
-        "compile_time": 0.021111249923706055
+        "asm_lines": 73,
+        "compile_time": 0.023273229598999023
       },
       "optimized": {
-        "asm_lines": 12,
-        "compile_time": 0.023230791091918945
+        "asm_lines": 14,
+        "compile_time": 0.021860122680664062
       },
       "improvement": {
-        "code_reduction_percent": 83.09859154929578,
-        "speedup_percent": -10.039865833963884
+        "code_reduction_percent": 80.82191780821918,
+        "speedup_percent": 6.071812733698715
       }
     },
     "test23_cond_expr.src": {
       "passed": true,
       "original": {
-        "asm_lines": 54,
-        "compile_time": 0.01832723617553711
+        "asm_lines": 58,
+        "compile_time": 0.020186901092529297
       },
       "optimized": {
-        "asm_lines": 38,
-        "compile_time": 0.02092432975769043
+        "asm_lines": 42,
+        "compile_time": 0.02891063690185547
       },
       "improvement": {
-        "code_reduction_percent": 29.629629629629626,
-        "speedup_percent": -14.170677767659685
+        "code_reduction_percent": 27.586206896551722,
+        "speedup_percent": -43.21483406165111
       }
     },
     "test24_nested_if_else.src": {
       "passed": true,
       "original": {
-        "asm_lines": 44,
-        "compile_time": 0.026175975799560547
+        "asm_lines": 46,
+        "compile_time": 0.018212556838989258
       },
       "optimized": {
-        "asm_lines": 28,
-        "compile_time": 0.028880596160888672
+        "asm_lines": 30,
+        "compile_time": 0.023069381713867188
       },
       "improvement": {
-        "code_reduction_percent": 36.36363636363637,
-        "speedup_percent": -10.332452864559615
+        "code_reduction_percent": 34.78260869565217,
+        "speedup_percent": -26.667452120069647
       }
     },
     "test25_while_condition.src": {
       "passed": true,
       "original": {
-        "asm_lines": 52,
-        "compile_time": 0.03333163261413574
+        "asm_lines": 54,
+        "compile_time": 0.02799534797668457
       },
       "optimized": {
-        "asm_lines": 24,
-        "compile_time": 0.02620220184326172
+        "asm_lines": 26,
+        "compile_time": 0.030386686325073242
       },
       "improvement": {
-        "code_reduction_percent": 53.84615384615385,
-        "speedup_percent": 21.38938363268313
+        "code_reduction_percent": 51.85185185185185,
+        "speedup_percent": -8.54191328637978
       }
     },
     "test26_mutual_rec.src": {
       "passed": true,
       "original": {
-        "asm_lines": 140,
-        "compile_time": 0.028716087341308594
+        "asm_lines": 146,
+        "compile_time": 0.023682832717895508
       },
       "optimized": {
-        "asm_lines": 110,
-        "compile_time": 0.01956915855407715
+        "asm_lines": 116,
+        "compile_time": 0.024656057357788086
       },
       "improvement": {
-        "code_reduction_percent": 21.428571428571427,
-        "speedup_percent": 31.852977317259473
+        "code_reduction_percent": 20.54794520547945,
+        "speedup_percent": -4.10940976312001
       }
     },
     "test27_deep_expr.src": {
       "passed": true,
       "original": {
-        "asm_lines": 57,
-        "compile_time": 0.3098435401916504
+        "asm_lines": 63,
+        "compile_time": 0.029877662658691406
       },
       "optimized": {
-        "asm_lines": 57,
-        "compile_time": 0.027456998825073242
+        "asm_lines": 63,
+        "compile_time": 0.023502111434936523
       },
       "improvement": {
         "code_reduction_percent": 0.0,
-        "speedup_percent": 91.13843109070791
+        "speedup_percent": 21.3388553736155
       }
     },
     "vars.src": {
       "passed": true,
       "original": {
-        "asm_lines": 41,
-        "compile_time": 0.01900792121887207
+        "asm_lines": 43,
+        "compile_time": 0.029945850372314453
       },
       "optimized": {
-        "asm_lines": 15,
-        "compile_time": 0.0202028751373291
+        "asm_lines": 17,
+        "compile_time": 0.030045509338378906
       },
       "improvement": {
-        "code_reduction_percent": 63.41463414634146,
-        "speedup_percent": -6.286610222640326
+        "code_reduction_percent": 60.46511627906976,
+        "speedup_percent": -0.3327972484514578
       }
     }
   },
   "summary": {
-    "avg_code_reduction": 36.9826405822914,
-    "avg_speedup": -44.496867683369956,
+    "avg_code_reduction": 35.403061091842034,
+    "avg_speedup": 3.236798172617504,
     "pass_rate": 1.0,
-    "performance_score": 47.01925438298734
+    "performance_score": 47.44928267350089
   }
 }

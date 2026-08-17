@@ -531,7 +531,7 @@ namespace MyCompiler
             case TACType::GOTO:
             {
                 std::string rvLabel = labelMap_.count(instr.label) ? labelMap_[instr.label] : instr.label;
-                emit("jal x0, " + rvLabel);
+                emit("j " + rvLabel);
                 break;
             }
 
@@ -539,7 +539,7 @@ namespace MyCompiler
             {
                 loadOperand(instr.lhs, "t0");
                 std::string rvLabel = labelMap_.count(instr.label) ? labelMap_[instr.label] : instr.label;
-                emit("bne t0, x0, " + rvLabel);
+                emit("bnez t0, " + rvLabel);
                 break;
             }
 
@@ -621,7 +621,7 @@ namespace MyCompiler
         // 使用 \n 代替 std::endl，避免 Windows CRLF 导致 Linux 汇编器错误
         std::cout << line << "\n";
         // 跟踪最后一条是否为 ret/jalr（用于跳过不可达 fallback epilogue）
-        lastEmittedWasRet_ = (line == "jalr x0, 0(x1)");
+        lastEmittedWasRet_ = (line == "ret");
         // 任何 emit 调用都会使跨寄存器 sw→lw peephole 的"紧邻"条件失效
         // (emitStackStore 在 emit 后会重新设置 lastStoreValid_ = true)
         lastStoreValid_ = false;
@@ -650,16 +650,16 @@ namespace MyCompiler
 
     // 带大偏移的栈加载：offset 超 12 位范围时用 li+add 两步法
     // Peephole 优化：
-    //   1. 若上一条刚发射的是 "sw reg, offset(x2)" 且寄存器相同 → 跳过 load
-    //   2. 若上一条刚发射的是 "sw regX, offset(x2)" 且寄存器不同 → 替换为 "mv reg, regX"
+    //   1. 若上一条刚发射的是 "sw reg, offset(sp)" 且寄存器相同 → 跳过 load
+    //   2. 若上一条刚发射的是 "sw regX, offset(sp)" 且寄存器不同 → 替换为 "mv reg, regX"
     void CodeGen::emitStackLoad(const std::string &reg, int offset)
     {
         if (offset >= -2048 && offset <= 2047)
         {
-            std::string loadLine = "lw " + reg + ", " + std::to_string(offset) + "(x2)";
+            std::string loadLine = "lw " + reg + ", " + std::to_string(offset) + "(sp)";
             // 优先检查增强peephole（跨寄存器 sw→lw 消除）
-            // 注意：x1 (ra) 是特殊寄存器（返回地址），不能被 peephole 删除！
-            if (reg != "x1" && lastStoreValid_ && lastStoreOffset_ == offset)
+            // 注意：ra 是特殊寄存器（返回地址），不能被 peephole 删除！
+            if (reg != "ra" && lastStoreValid_ && lastStoreOffset_ == offset)
             {
                 if (lastStoreReg_ == reg)
                 {
@@ -678,8 +678,8 @@ namespace MyCompiler
                 }
             }
             // 兼容旧peephole（检查 lastEmittedLine_ 是否完全匹配）
-            // 同样保护 x1 (ra) 寄存器
-            if (reg != "x1" && lastLineValid_ && lastEmittedLine_ == "sw " + reg + ", " + std::to_string(offset) + "(x2)")
+            // 同样保护 ra 寄存器
+            if (reg != "ra" && lastLineValid_ && lastEmittedLine_ == "sw " + reg + ", " + std::to_string(offset) + "(sp)")
             {
                 lastLineValid_ = false;
                 lastEmittedLine_.clear();
@@ -690,7 +690,7 @@ namespace MyCompiler
         else
         {
             emitLi("t2", offset);
-            emit("add t2, x2, t2");
+            emit("add t2, sp, t2");
             emit("lw " + reg + ", 0(t2)");
         }
     }
@@ -699,7 +699,7 @@ namespace MyCompiler
     {
         if (offset >= -2048 && offset <= 2047)
         {
-            emit("sw " + reg + ", " + std::to_string(offset) + "(x2)");
+            emit("sw " + reg + ", " + std::to_string(offset) + "(sp)");
             // 记录此次 store 供 emitStackLoad 做跨寄存器 peephole
             // 注意：emit() 已将 lastStoreValid_ 置 false，此处恢复为 true
             lastStoreReg_ = reg;
@@ -709,7 +709,7 @@ namespace MyCompiler
         else
         {
             emitLi("t2", offset);
-            emit("add t2, x2, t2");
+            emit("add t2, sp, t2");
             emit("sw " + reg + ", 0(t2)");
             lastStoreValid_ = false;
         }
@@ -890,47 +890,23 @@ namespace MyCompiler
 
     void CodeGen::emitLi(const std::string &reg, int32_t value)
     {
-        // RISC-V: addi rd, x0, imm 支持 -2048 ~ 2047
-        // 超过此范围用 lui + addi 实现
-        if (value >= -2048 && value <= 2047)
-        {
-            emit("addi " + reg + ", x0, " + std::to_string(value));
-        }
-        else
-        {
-            // lui 加载高 20 位，addi 调整低 12 位
-            int32_t upper = value >> 12;
-            int32_t lower = value & 0xFFF;
-            // 如果低 12 位的最高位为 1，需要进位
-            if (lower >= 0x800)
-            {
-                upper += 1;
-                lower = lower - 0x1000;
-            }
-            emit("lui " + reg + ", " + std::to_string(upper));
-            if (lower != 0)
-            {
-                emit("addi " + reg + ", " + reg + ", " + std::to_string(lower));
-            }
-        }
+        // 使用 li 伪指令，汇编器会自动选择 addi 或 lui+addi
+        emit("li " + reg + ", " + std::to_string(value));
     }
 
     void CodeGen::emitSeqz(const std::string &rd, const std::string &rs1)
     {
-        // seqz rd, rs1 → sltiu rd, rs1, 1
-        emit("sltiu " + rd + ", " + rs1 + ", 1");
+        emit("seqz " + rd + ", " + rs1);
     }
 
     void CodeGen::emitSnez(const std::string &rd, const std::string &rs1)
     {
-        // snez rd, rs1 → sltu rd, x0, rs1
-        emit("sltu " + rd + ", x0, " + rs1);
+        emit("snez " + rd + ", " + rs1);
     }
 
     void CodeGen::emitNeg(const std::string &rd, const std::string &rs1)
     {
-        // neg rd, rs1 → sub rd, x0, rs1
-        emit("sub " + rd + ", x0, " + rs1);
+        emit("neg " + rd + ", " + rs1);
     }
 
     // 软件乘法：t0 = t0 * t1（使用移位加法算法）
@@ -943,34 +919,34 @@ namespace MyCompiler
         std::string endLabel = "_MUL_E" + std::to_string(id);
 
         // 确定符号
-        emit("addi t4, x0, 0");
-        emit("bge t0, x0, " + loopLabel + "_NS");
-        emit("addi t4, x0, 1");
-        emit("sub t0, x0, t0");
+        emit("addi t4, zero, 0");
+        emit("bge t0, zero, " + loopLabel + "_NS");
+        emit("addi t4, zero, 1");
+        emit("sub t0, zero, t0");
         emit(loopLabel + "_NS:");
-        emit("bge t1, x0, " + loopLabel + "_NS2");
+        emit("bge t1, zero, " + loopLabel + "_NS2");
         emit("xori t4, t4, 1");
-        emit("sub t1, x0, t1");
+        emit("sub t1, zero, t1");
         emit(loopLabel + "_NS2:");
 
         // 移位加法
-        emit("addi t2, x0, 0");
-        emit("addi t3, x0, 32");
+        emit("addi t2, zero, 0");
+        emit("addi t3, zero, 32");
         emit(loopLabel + ":");
-        emit("beq t1, x0, " + endLabel);
+        emit("beq t1, zero, " + endLabel);
         emit("andi t5, t1, 1");
-        emit("beq t5, x0, " + loopLabel + "_SKIP");
+        emit("beq t5, zero, " + loopLabel + "_SKIP");
         emit("add t2, t2, t0");
         emit(loopLabel + "_SKIP:");
         emit("slli t0, t0, 1");
         emit("srli t1, t1, 1");
         emit("addi t3, t3, -1");
-        emit("bne t3, x0, " + loopLabel);
+        emit("bne t3, zero, " + loopLabel);
         emit(endLabel + ":");
 
         // 应用符号
-        emit("beq t4, x0, " + endLabel + "_DN");
-        emit("sub t2, x0, t2");
+        emit("beq t4, zero, " + endLabel + "_DN");
+        emit("sub t2, zero, t2");
         emit(endLabel + "_DN:");
         emit("addi t0, t2, 0");
     }
@@ -985,23 +961,23 @@ namespace MyCompiler
         std::string endLabel = "_DIV_E" + std::to_string(id);
 
         // 确定商的符号
-        emit("addi t4, x0, 0");
-        emit("bge t0, x0, " + loopLabel + "_NS");
-        emit("addi t4, x0, 1");
-        emit("sub t0, x0, t0");
+        emit("addi t4, zero, 0");
+        emit("bge t0, zero, " + loopLabel + "_NS");
+        emit("addi t4, zero, 1");
+        emit("sub t0, zero, t0");
         emit(loopLabel + "_NS:");
-        emit("bge t1, x0, " + loopLabel + "_NS2");
+        emit("bge t1, zero, " + loopLabel + "_NS2");
         emit("xori t4, t4, 1");
-        emit("sub t1, x0, t1");
+        emit("sub t1, zero, t1");
         emit(loopLabel + "_NS2:");
 
         // 恢复除法
-        emit("addi t2, x0, 0");
-        emit("addi t3, x0, 32");
+        emit("addi t2, zero, 0");
+        emit("addi t3, zero, 32");
         emit(loopLabel + ":");
         emit("slli t2, t2, 1");
         emit("srli t5, t0, 31");
-        emit("beq t5, x0, " + loopLabel + "_CLR");
+        emit("beq t5, zero, " + loopLabel + "_CLR");
         emit("addi t2, t2, 1");
         emit(loopLabel + "_CLR:");
         emit("slli t0, t0, 1");
@@ -1010,12 +986,12 @@ namespace MyCompiler
         emit("addi t0, t0, 1");
         emit(loopLabel + "_NO:");
         emit("addi t3, t3, -1");
-        emit("bne t3, x0, " + loopLabel);
+        emit("bne t3, zero, " + loopLabel);
         emit(endLabel + ":");
 
         // 应用符号
-        emit("beq t4, x0, " + endLabel + "_DN");
-        emit("sub t0, x0, t0");
+        emit("beq t4, zero, " + endLabel + "_DN");
+        emit("sub t0, zero, t0");
         emit(endLabel + "_DN:");
     }
 
@@ -1028,22 +1004,22 @@ namespace MyCompiler
         std::string endLabel = "_REM_E" + std::to_string(id);
 
         // 确定余数的符号（与被除数相同）
-        emit("addi t4, x0, 0");
-        emit("bge t0, x0, " + loopLabel + "_NS");
-        emit("addi t4, x0, 1");
-        emit("sub t0, x0, t0");
+        emit("addi t4, zero, 0");
+        emit("bge t0, zero, " + loopLabel + "_NS");
+        emit("addi t4, zero, 1");
+        emit("sub t0, zero, t0");
         emit(loopLabel + "_NS:");
-        emit("bge t1, x0, " + loopLabel + "_NS2");
-        emit("sub t1, x0, t1");
+        emit("bge t1, zero, " + loopLabel + "_NS2");
+        emit("sub t1, zero, t1");
         emit(loopLabel + "_NS2:");
 
         // 恢复除法（只保留余数）
-        emit("addi t2, x0, 0");
-        emit("addi t3, x0, 32");
+        emit("addi t2, zero, 0");
+        emit("addi t3, zero, 32");
         emit(loopLabel + ":");
         emit("slli t2, t2, 1");
         emit("srli t5, t0, 31");
-        emit("beq t5, x0, " + loopLabel + "_CLR");
+        emit("beq t5, zero, " + loopLabel + "_CLR");
         emit("addi t2, t2, 1");
         emit(loopLabel + "_CLR:");
         emit("slli t0, t0, 1");
@@ -1051,12 +1027,12 @@ namespace MyCompiler
         emit("sub t2, t2, t1");
         emit(loopLabel + "_NO:");
         emit("addi t3, t3, -1");
-        emit("bne t3, x0, " + loopLabel);
+        emit("bne t3, zero, " + loopLabel);
         emit(endLabel + ":");
 
         // 应用符号
-        emit("beq t4, x0, " + endLabel + "_DN");
-        emit("sub t2, x0, t2");
+        emit("beq t4, zero, " + endLabel + "_DN");
+        emit("sub t2, zero, t2");
         emit(endLabel + "_DN:");
         emit("addi t0, t2, 0");
     }
@@ -1067,19 +1043,16 @@ namespace MyCompiler
         emit(".align 2");
         emit(".globl _start");
         emit("_start:");
-        emit("addi x2, x2, -256");
-        emit("sw x1, 252(x2)");
+        emit("addi sp, sp, -256");
+        emit("sw ra, 252(sp)");
     }
 
     void CodeGen::emitFuncPrologue(const std::string &funcName, int frameSize)
     {
-        // 判断是否为叶函数
-        bool isLeaf = funcIsLeaf_.count(funcName) && funcIsLeaf_[funcName];
-
         if (frameSize < 16)
             frameSize = 16;
         currentFrameSize_ = frameSize;
-        currentFuncIsLeaf_ = isLeaf;
+        currentFuncIsLeaf_ = funcIsLeaf_.count(funcName) && funcIsLeaf_[funcName];
 
         emit("");
         if (funcName == "main")
@@ -1092,19 +1065,12 @@ namespace MyCompiler
             emit("func_" + funcName + ":");
         }
 
-        // 始终分配栈帧，保证汇编器/仿真器的栈约定一致
-        if (frameSize <= 2047)
-        {
-            emit("addi x2, x2, -" + std::to_string(frameSize));
-        }
-        else
-        {
-            emitLi("t2", frameSize);
-            emit("sub x2, x2, t2");
-        }
+        // 始终分配栈帧，使用 li + sub 模式
+        emitLi("t2", frameSize);
+        emit("sub sp, sp, t2");
 
-        // 始终保存 ra，保证返回地址正确性
-        emit("sw x1, " + std::to_string(frameSize - 4) + "(x2)");
+        // 始终保存 ra
+        emit("sw ra, " + std::to_string(frameSize - 4) + "(sp)");
 
         varOffsets_.clear();
     }
@@ -1115,27 +1081,17 @@ namespace MyCompiler
         if (frameSize < 0)
             frameSize = 0;
 
-        bool isLeaf = currentFuncIsLeaf_;
-
-        // 如果帧大小为 0，直接返回
         if (frameSize == 0)
         {
-            emit("jalr x0, 0(x1)");
+            emit("ret");
             return;
         }
 
         // 恢复 ra 并返回
-        emit("lw x1, " + std::to_string(frameSize - 4) + "(x2)");
-        if (frameSize <= 2047)
-        {
-            emit("addi x2, x2, " + std::to_string(frameSize));
-        }
-        else
-        {
-            emitLi("t2", frameSize);
-            emit("add x2, x2, t2");
-        }
-        emit("jalr x0, 0(x1)");
+        emit("lw ra, " + std::to_string(frameSize - 4) + "(sp)");
+        emitLi("t2", frameSize);
+        emit("add sp, sp, t2");
+        emit("ret");
     }
 
     void CodeGen::emitExit()
